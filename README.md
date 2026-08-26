@@ -78,6 +78,16 @@ curl -i http://127.0.0.1:3000/v1/auth/login \
 
 API Key 默认 90 天到期，可在创建或轮换请求中通过 `expiresInDays` 设置 1 至 365 天。数据库只保存完整 Token 的 SHA-256 摘要。
 
+Agent 密钥对必须由 Agent 客户端生成，AIPay 只接收规范 base64url 编码的 32 字节 Ed25519 公钥：
+
+| 方法    | 路径                         | 用途                       |
+| ------- | ---------------------------- | -------------------------- |
+| `POST`  | `/v1/agents`                 | 注册 Agent 名称和签名公钥  |
+| `GET`   | `/v1/agents`                 | 列出当前开发者的 Agent     |
+| `PATCH` | `/v1/agents/:agentId/status` | 在 enabled/disabled 间切换 |
+
+Agent 私钥不得发送给 AIPay，也不得写入项目 `.env`、日志或数据库。
+
 ## 环境变量
 
 本地开发从 `.env.example` 创建 `.env`。`.env` 已被 Git 忽略，不要在其中提交真实密钥、Token 或用户数据。

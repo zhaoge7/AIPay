@@ -39,10 +39,34 @@ export interface ApiKeyTable {
   replacedByKeyId: string | null;
 }
 
+export interface AgentTable {
+  id: Generated<string>;
+  developerId: string;
+  name: string;
+  status: Generated<'enabled' | 'disabled' | 'revoked'>;
+  createdAt: Generated<Date>;
+  updatedAt: Generated<Date>;
+}
+
+export interface SigningKeyTable {
+  id: Generated<string>;
+  ownerType: 'developer' | 'agent' | 'merchant';
+  developerId: string | null;
+  agentId: string | null;
+  merchantId: string | null;
+  algorithm: Generated<'ed25519'>;
+  publicKey: Uint8Array;
+  status: Generated<'active' | 'revoked'>;
+  createdAt: Generated<Date>;
+  revokedAt: Date | null;
+}
+
 export interface AIPayDatabase {
   developers: DeveloperTable;
   authSessions: AuthSessionTable;
   apiKeys: ApiKeyTable;
+  agents: AgentTable;
+  signingKeys: SigningKeyTable;
 }
 
 export interface CreateDatabaseOptions {

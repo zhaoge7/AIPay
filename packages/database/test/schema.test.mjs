@@ -78,7 +78,7 @@ test('creates the complete core schema and enforces Contract bindings', async (c
   );
   const developerId = developer.rows[0].id;
   const agent = await client.query(
-    'INSERT INTO aipay.agents (developer_id) VALUES ($1) RETURNING id',
+    "INSERT INTO aipay.agents (developer_id, name) VALUES ($1, 'Schema Agent') RETURNING id",
     [developerId],
   );
   const agentId = agent.rows[0].id;

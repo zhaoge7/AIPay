@@ -3,6 +3,7 @@ import { createApiProblem, createApiSuccess } from '@aipay/contracts';
 import type { Database } from '@aipay/database';
 import Fastify, { type FastifyError, type FastifyReply } from 'fastify';
 
+import { registerAgentRoutes } from './agents/routes.js';
 import { registerApiKeyRoutes } from './api-keys/routes.js';
 import { AuthError, AuthService, type AuthResult } from './auth/service.js';
 import { createTraceId, sendProblem } from './http/problem.js';
@@ -77,6 +78,7 @@ export async function buildApp(options: BuildAppOptions) {
   await app.register(cookie);
   app.decorateRequest('authenticatedDeveloperId', null);
   registerApiKeyRoutes(app, options.database);
+  registerAgentRoutes(app, options.database);
 
   app.setErrorHandler((error, request, reply) => {
     const traceId = createTraceId();

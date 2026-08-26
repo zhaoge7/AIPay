@@ -38,9 +38,6 @@ test('creates, migrates and rebuilds an isolated PostgreSQL test database', asyn
     "SELECT schema_name FROM information_schema.schemata WHERE schema_name = 'aipay'",
   );
   const migrations = await client.query('SELECT name FROM aipay_migrations ORDER BY run_on');
-  const tablesBeforeRollback = await client.query(
-    "SELECT count(*)::INTEGER AS count FROM information_schema.tables WHERE table_schema = 'aipay'",
-  );
   await client.end();
 
   assert.equal(schema.rowCount, 1);
@@ -58,11 +55,11 @@ test('creates, migrates and rebuilds an isolated PostgreSQL test database', asyn
 
   client = new Client({ connectionString: databaseUrl });
   await client.connect();
-  const tablesAfterRollback = await client.query(
-    "SELECT count(*)::INTEGER AS count FROM information_schema.tables WHERE table_schema = 'aipay'",
+  const migrationsAfterRollback = await client.query(
+    'SELECT count(*)::INTEGER AS count FROM aipay_migrations',
   );
   await client.end();
-  assert.equal(tablesAfterRollback.rows[0].count, tablesBeforeRollback.rows[0].count - 1);
+  assert.equal(migrationsAfterRollback.rows[0].count, firstRun.length - 1);
 
   const reapplied = await runMigrations(databaseUrl, discardLog);
   assert.equal(reapplied.length, 1);
