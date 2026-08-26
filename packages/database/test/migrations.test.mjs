@@ -47,6 +47,23 @@ test('creates, migrates and rebuilds an isolated PostgreSQL test database', asyn
     true,
   );
 
+  const rolledBack = await runMigrations(databaseUrl, discardLog, {
+    direction: 'down',
+    count: 1,
+  });
+  assert.equal(rolledBack.length, 1);
+
+  client = new Client({ connectionString: databaseUrl });
+  await client.connect();
+  const tablesAfterRollback = await client.query(
+    "SELECT count(*)::INTEGER AS count FROM information_schema.tables WHERE table_schema = 'aipay'",
+  );
+  await client.end();
+  assert.equal(tablesAfterRollback.rows[0].count, 0);
+
+  const reapplied = await runMigrations(databaseUrl, discardLog);
+  assert.equal(reapplied.length, 1);
+
   await resetDatabase(databaseUrl);
   await runMigrations(databaseUrl, discardLog);
 

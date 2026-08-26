@@ -6,11 +6,12 @@ import { runner as migrate } from 'node-pg-migrate';
 
 const packageDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-export async function runMigrations(databaseUrl, logger = console.log) {
+export async function runMigrations(databaseUrl, logger = console.log, options = {}) {
   return migrate({
     databaseUrl,
     dir: path.join(packageDirectory, 'migrations'),
-    direction: 'up',
+    direction: options.direction ?? 'up',
+    count: options.count ?? Infinity,
     migrationsTable: 'aipay_migrations',
     checkOrder: true,
     noLock: false,

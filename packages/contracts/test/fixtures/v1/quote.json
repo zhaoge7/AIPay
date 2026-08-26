@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "1",
+  "quoteId": "qte_01890f3e-9b50-7cc2-98c5-7f6a1b2c3d4e",
+  "merchantId": "mch_01890f3e-9b51-7cc2-a8c5-7f6a1b2c3d4e",
+  "serviceId": "svc_01890f3e-9b52-7cc2-b8c5-7f6a1b2c3d4e",
+  "unit": "request",
+  "quantity": 3,
+  "unitPrice": { "currency": "CNY", "amountMinor": "200" },
+  "subtotal": { "currency": "CNY", "amountMinor": "600" },
+  "taxBehavior": "inclusive",
+  "taxAmount": { "currency": "CNY", "amountMinor": "34" },
+  "total": { "currency": "CNY", "amountMinor": "600" },
+  "issuedAt": "2026-08-27T01:00:00.000Z",
+  "expiresAt": "2026-08-27T01:05:00.000Z",
+  "proof": {
+    "scheme": "aipay-jcs-ed25519-v1",
+    "keyId": "key_01890f3e-9b53-7cc2-88c5-7f6a1b2c3d4e",
+    "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+  }
+}

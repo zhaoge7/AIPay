@@ -232,6 +232,25 @@ export function parseAuditEvent(value: unknown): AuditEvent {
   return toAuditEvent(result.data);
 }
 
+export function toAuditEventWire(event: AuditEvent): Readonly<AuditEventWire> {
+  const wire: AuditEventWire = {
+    schemaVersion: event.schemaVersion,
+    eventId: event.eventId,
+    eventType: event.eventType,
+    actor: { ...event.actor },
+    object: { ...event.object },
+    occurredAt: event.occurredAt,
+    traceId: event.traceId,
+    parentEventId: event.parentEventId,
+    result: { ...event.result },
+  };
+
+  Object.freeze(wire.actor);
+  Object.freeze(wire.object);
+  Object.freeze(wire.result);
+  return Object.freeze(wire);
+}
+
 export function getAuditEventJsonSchema() {
   return z.toJSONSchema(AuditEventWireSchema, { target: 'draft-2020-12' });
 }

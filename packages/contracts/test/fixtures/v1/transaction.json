@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "1",
+  "transactionId": "txn_01890f3e-9b60-7cc2-98c5-7f6a1b2c3d4e",
+  "quoteId": "qte_01890f3e-9b61-7cc2-a8c5-7f6a1b2c3d4e",
+  "mandateId": "mdt_01890f3e-9b62-7cc2-b8c5-7f6a1b2c3d4e",
+  "principalId": "dev_01890f3e-9b63-7cc2-88c5-7f6a1b2c3d4e",
+  "agentId": "agt_01890f3e-9b64-7cc2-98c5-7f6a1b2c3d4e",
+  "merchantId": "mch_01890f3e-9b65-7cc2-a8c5-7f6a1b2c3d4e",
+  "serviceId": "svc_01890f3e-9b66-7cc2-b8c5-7f6a1b2c3d4e",
+  "amount": { "currency": "CNY", "amountMinor": "600" },
+  "status": "delivery_pending",
+  "paymentAttemptIds": [
+    "pat_01890f3e-9b67-7cc2-88c5-7f6a1b2c3d4e",
+    "pat_01890f3e-9b68-7cc2-98c5-7f6a1b2c3d4e"
+  ],
+  "deliveryId": "dlv_01890f3e-9b69-7cc2-a8c5-7f6a1b2c3d4e",
+  "refundIds": ["rfd_01890f3e-9b6a-7cc2-b8c5-7f6a1b2c3d4e"],
+  "createdAt": "2026-08-27T02:00:00.000Z",
+  "updatedAt": "2026-08-27T02:01:00.000Z"
+}

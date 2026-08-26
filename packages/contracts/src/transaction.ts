@@ -175,6 +175,31 @@ export function parseTransaction(value: unknown): Transaction {
   return toTransaction(result.data);
 }
 
+export function toTransactionWire(transaction: Transaction): Readonly<TransactionWire> {
+  const wire: TransactionWire = {
+    schemaVersion: transaction.schemaVersion,
+    transactionId: transaction.transactionId,
+    quoteId: transaction.quoteId,
+    mandateId: transaction.mandateId,
+    principalId: transaction.principalId,
+    agentId: transaction.agentId,
+    merchantId: transaction.merchantId,
+    serviceId: transaction.serviceId,
+    amount: { ...transaction.amount },
+    status: transaction.status,
+    paymentAttemptIds: [...transaction.paymentAttemptIds],
+    deliveryId: transaction.deliveryId,
+    refundIds: [...transaction.refundIds],
+    createdAt: transaction.createdAt,
+    updatedAt: transaction.updatedAt,
+  };
+
+  Object.freeze(wire.amount);
+  Object.freeze(wire.paymentAttemptIds);
+  Object.freeze(wire.refundIds);
+  return Object.freeze(wire);
+}
+
 export function getTransactionJsonSchema() {
   return z.toJSONSchema(TransactionWireSchema, { target: 'draft-2020-12' });
 }

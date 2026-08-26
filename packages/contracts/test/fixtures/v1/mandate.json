@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "1",
+  "mandateId": "mdt_01890f3e-9b40-7cc2-98c5-7f6a1b2c3d4e",
+  "principalId": "dev_01890f3e-9b41-7cc2-a8c5-7f6a1b2c3d4e",
+  "agentId": "agt_01890f3e-9b42-7cc2-b8c5-7f6a1b2c3d4e",
+  "purpose": "Purchase weather API calls",
+  "allowedMerchantIds": ["mch_01890f3e-9b43-7cc2-88c5-7f6a1b2c3d4e"],
+  "allowedCategories": ["data.weather"],
+  "maxPerTransaction": { "currency": "CNY", "amountMinor": "1000" },
+  "totalBudget": { "currency": "CNY", "amountMinor": "10000" },
+  "approvalRequiredAbove": { "currency": "CNY", "amountMinor": "500" },
+  "maxTransactions": 100,
+  "issuedAt": "2026-08-27T00:00:00.000Z",
+  "validUntil": "2026-08-28T00:00:00.000Z",
+  "instructionHash": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "proof": {
+    "scheme": "aipay-jcs-ed25519-v1",
+    "keyId": "key_01890f3e-9b44-7cc2-98c5-7f6a1b2c3d4e",
+    "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+  }
+}

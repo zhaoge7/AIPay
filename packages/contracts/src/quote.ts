@@ -245,6 +245,32 @@ export function getQuoteSigningPayload(quote: Quote): Readonly<QuoteSigningPaylo
   });
 }
 
+export function toQuoteWire(quote: Quote): Readonly<QuoteWire> {
+  const wire: QuoteWire = {
+    schemaVersion: quote.schemaVersion,
+    quoteId: quote.quoteId,
+    merchantId: quote.merchantId,
+    serviceId: quote.serviceId,
+    unit: quote.unit,
+    quantity: quote.quantity,
+    unitPrice: { ...quote.unitPrice },
+    subtotal: { ...quote.subtotal },
+    taxBehavior: quote.taxBehavior,
+    taxAmount: { ...quote.taxAmount },
+    total: { ...quote.total },
+    issuedAt: quote.issuedAt,
+    expiresAt: quote.expiresAt,
+    proof: { ...quote.proof },
+  };
+
+  Object.freeze(wire.unitPrice);
+  Object.freeze(wire.subtotal);
+  Object.freeze(wire.taxAmount);
+  Object.freeze(wire.total);
+  Object.freeze(wire.proof);
+  return Object.freeze(wire);
+}
+
 export function getQuoteJsonSchema() {
   return z.toJSONSchema(QuoteWireSchema, { target: 'draft-2020-12' });
 }

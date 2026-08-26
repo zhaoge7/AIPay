@@ -293,6 +293,34 @@ export function getMandateSigningPayload(mandate: Mandate): Readonly<MandateSign
   });
 }
 
+export function toMandateWire(mandate: Mandate): Readonly<MandateWire> {
+  const wire: MandateWire = {
+    schemaVersion: mandate.schemaVersion,
+    mandateId: mandate.mandateId,
+    principalId: mandate.principalId,
+    agentId: mandate.agentId,
+    purpose: mandate.purpose,
+    allowedMerchantIds: [...mandate.allowedMerchantIds],
+    allowedCategories: [...mandate.allowedCategories],
+    maxPerTransaction: { ...mandate.maxPerTransaction },
+    totalBudget: { ...mandate.totalBudget },
+    approvalRequiredAbove: { ...mandate.approvalRequiredAbove },
+    maxTransactions: mandate.maxTransactions,
+    issuedAt: mandate.issuedAt,
+    validUntil: mandate.validUntil,
+    instructionHash: mandate.instructionHash,
+    proof: { ...mandate.proof },
+  };
+
+  Object.freeze(wire.allowedMerchantIds);
+  Object.freeze(wire.allowedCategories);
+  Object.freeze(wire.maxPerTransaction);
+  Object.freeze(wire.totalBudget);
+  Object.freeze(wire.approvalRequiredAbove);
+  Object.freeze(wire.proof);
+  return Object.freeze(wire);
+}
+
 export function getMandateJsonSchema() {
   return z.toJSONSchema(MandateWireSchema, { target: 'draft-2020-12' });
 }

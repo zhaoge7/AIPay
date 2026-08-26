@@ -1,0 +1,12 @@
+{
+  "type": "urn:aipay:problem:service-unavailable",
+  "title": "The service is temporarily unavailable",
+  "status": 503,
+  "detail": "The service cannot accept this request yet.",
+  "instance": "urn:aipay:trace:0123456789abcdef0123456789abcdef",
+  "code": "SERVICE_UNAVAILABLE",
+  "kind": "system",
+  "retryable": true,
+  "retryAfterMs": 5000,
+  "traceId": "0123456789abcdef0123456789abcdef"
+}

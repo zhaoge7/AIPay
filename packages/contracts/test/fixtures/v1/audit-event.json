@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "1",
+  "eventId": "evt_01890f3e-9b70-7cc2-98c5-7f6a1b2c3d4e",
+  "eventType": "transaction.state_changed",
+  "actor": {
+    "type": "agent",
+    "id": "agt_01890f3e-9b73-7cc2-88c5-7f6a1b2c3d4e"
+  },
+  "object": {
+    "type": "transaction",
+    "id": "txn_01890f3e-9b75-7cc2-a8c5-7f6a1b2c3d4e"
+  },
+  "occurredAt": "2026-08-27T03:00:00.000Z",
+  "traceId": "0123456789abcdef0123456789abcdef",
+  "parentEventId": "evt_01890f3e-9b71-7cc2-a8c5-7f6a1b2c3d4e",
+  "result": { "outcome": "succeeded", "code": null }
+}
