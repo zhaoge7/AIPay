@@ -27,14 +27,17 @@ export const transactionStatuses = [
   'requires_confirmation',
   'authorized',
   'payment_pending',
+  'payment_review',
   'paid',
   'delivery_pending',
+  'delivery_review',
   'delivered',
   'refund_pending',
+  'refund_review',
   'refunded',
+  'settled',
   'failed',
   'cancelled',
-  'manual_review',
 ] as const;
 
 export type TransactionStatus = (typeof transactionStatuses)[number];

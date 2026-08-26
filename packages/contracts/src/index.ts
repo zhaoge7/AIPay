@@ -70,3 +70,16 @@ export {
   type TransactionStatus,
   type TransactionWire,
 } from './transaction.js';
+
+export {
+  TransactionTransitionError,
+  canTransitionTransaction,
+  getAllowedTransactionEvents,
+  isTerminalTransactionStatus,
+  terminalTransactionStatuses,
+  transactionEvents,
+  transactionTransitions,
+  transitionTransaction,
+  type TransactionEvent,
+  type TransactionTransitionErrorCode,
+} from './transaction-state-machine.js';
