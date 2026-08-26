@@ -84,7 +84,8 @@ test('creates the complete core schema and enforces Contract bindings', async (c
   );
   const agentId = agent.rows[0].id;
   const merchant = await client.query(
-    "INSERT INTO aipay.merchants (developer_id, name) VALUES ($1, 'Test Merchant') RETURNING id",
+    `INSERT INTO aipay.merchants (developer_id, name, callback_url)
+      VALUES ($1, 'Test Merchant', 'https://merchant.example.com/aipay/webhook') RETURNING id`,
     [developerId],
   );
   const merchantId = merchant.rows[0].id;

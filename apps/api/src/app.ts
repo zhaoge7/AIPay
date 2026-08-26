@@ -9,6 +9,7 @@ import { registerAgentSignatureRoutes } from './agent-signatures/routes.js';
 import { registerApiKeyRoutes } from './api-keys/routes.js';
 import { AuthError, AuthService, type AuthResult } from './auth/service.js';
 import { createTraceId, sendProblem } from './http/problem.js';
+import { registerMerchantRoutes } from './merchants/routes.js';
 
 const authBodySchema = {
   type: 'object',
@@ -85,6 +86,7 @@ export async function buildApp(options: BuildAppOptions) {
   registerApiKeyRoutes(app, options.database);
   registerAgentRoutes(app, options.database);
   registerAgentSignatureRoutes(app, options.database);
+  registerMerchantRoutes(app, options.database);
 
   app.setErrorHandler((error, request, reply) => {
     const traceId = createTraceId();

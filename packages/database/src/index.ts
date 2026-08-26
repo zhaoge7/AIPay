@@ -69,6 +69,16 @@ export interface AgentRequestNonceTable {
   expiresAt: Date;
 }
 
+export interface MerchantTable {
+  id: Generated<string>;
+  developerId: string;
+  name: string;
+  callbackUrl: string;
+  status: Generated<'active' | 'suspended' | 'closed'>;
+  createdAt: Generated<Date>;
+  updatedAt: Generated<Date>;
+}
+
 export interface AIPayDatabase {
   developers: DeveloperTable;
   authSessions: AuthSessionTable;
@@ -76,6 +86,7 @@ export interface AIPayDatabase {
   agents: AgentTable;
   signingKeys: SigningKeyTable;
   agentRequestNonces: AgentRequestNonceTable;
+  merchants: MerchantTable;
 }
 
 export interface CreateDatabaseOptions {
