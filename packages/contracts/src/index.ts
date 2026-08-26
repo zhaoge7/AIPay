@@ -60,3 +60,13 @@ export {
   type QuoteSigningPayload,
   type QuoteWire,
 } from './quote.js';
+
+export {
+  TransactionWireSchema,
+  getTransactionJsonSchema,
+  parseTransaction,
+  transactionStatuses,
+  type Transaction,
+  type TransactionStatus,
+  type TransactionWire,
+} from './transaction.js';

@@ -14,7 +14,9 @@ export type ContractValidationIssueCode =
   | 'amount_overflow'
   | 'subtotal_mismatch'
   | 'tax_exceeds_subtotal'
-  | 'total_mismatch';
+  | 'total_mismatch'
+  | 'duplicate_reference'
+  | 'invalid_timestamp_order';
 
 export interface ContractValidationIssue {
   readonly code: ContractValidationIssueCode;
@@ -24,7 +26,10 @@ export interface ContractValidationIssue {
 export class ContractValidationError extends Error {
   readonly issues: readonly Readonly<ContractValidationIssue>[];
 
-  constructor(contractName: 'Mandate' | 'Quote', issues: readonly ContractValidationIssue[]) {
+  constructor(
+    contractName: 'Mandate' | 'Quote' | 'Transaction',
+    issues: readonly ContractValidationIssue[],
+  ) {
     super(`Invalid ${contractName} contract`);
     this.name = 'ContractValidationError';
     this.issues = Object.freeze(
