@@ -80,7 +80,11 @@ packages/
   payment/      支付通道抽象
   policy/       确定性授权策略
   sdk-ts/       TypeScript SDK
+docs/
+  adr/          已接受的架构决策记录
 ```
+
+架构边界、数据事务和异步策略见 [ADR-001](docs/adr/0001-modular-monolith-postgresql-outbox.md)。统一标识、金额和时间表示见 [ADR-002](docs/adr/0002-identifiers-money-time.md)。完整索引和选型留档规则见 [架构决策记录](docs/adr/README.md)。
 
 ## 常见问题
 
