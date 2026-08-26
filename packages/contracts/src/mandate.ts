@@ -1,5 +1,12 @@
 import * as z from 'zod';
 
+import {
+  ContractValidationError,
+  mapSchemaIssueCode,
+  toJsonPointer,
+  type ContractValidationIssue,
+  type ContractValidationIssueCode,
+} from './contract-validation.js';
 import { getResourceIdPattern, parseResourceId, type ResourceId } from './values/identifier.js';
 import { createMoney, MAX_MINOR_AMOUNT, type Money } from './values/money.js';
 import { isExpired, parseUtcDateTime, type UtcDateTime } from './values/time.js';
@@ -96,59 +103,6 @@ export interface MandateSigningPayload {
   readonly validUntil: Mandate['validUntil'];
   readonly instructionHash: Mandate['instructionHash'];
   readonly proof: Readonly<Omit<Mandate['proof'], 'value'>>;
-}
-
-export type ContractValidationIssueCode =
-  | 'invalid_type'
-  | 'invalid_value'
-  | 'invalid_format'
-  | 'out_of_range'
-  | 'unknown_field'
-  | 'duplicate_allowed_merchant'
-  | 'duplicate_allowed_category'
-  | 'invalid_unicode'
-  | 'invalid_validity_window'
-  | 'max_per_transaction_exceeds_budget';
-
-export interface ContractValidationIssue {
-  readonly code: ContractValidationIssueCode;
-  readonly path: string;
-}
-
-export class ContractValidationError extends Error {
-  readonly issues: readonly Readonly<ContractValidationIssue>[];
-
-  constructor(issues: readonly ContractValidationIssue[]) {
-    super('Invalid Mandate contract');
-    this.name = 'ContractValidationError';
-    this.issues = Object.freeze(
-      issues.map((issue) => Object.freeze({ code: issue.code, path: issue.path })),
-    );
-  }
-}
-
-function escapeJsonPointerSegment(segment: PropertyKey): string {
-  return String(segment).replaceAll('~', '~0').replaceAll('/', '~1');
-}
-
-function toJsonPointer(path: readonly PropertyKey[]): string {
-  return path.length === 0 ? '/' : `/${path.map(escapeJsonPointerSegment).join('/')}`;
-}
-
-function mapZodIssueCode(code: string): ContractValidationIssueCode {
-  switch (code) {
-    case 'invalid_type':
-      return 'invalid_type';
-    case 'too_small':
-    case 'too_big':
-      return 'out_of_range';
-    case 'unrecognized_keys':
-      return 'unknown_field';
-    case 'invalid_format':
-      return 'invalid_format';
-    default:
-      return 'invalid_value';
-  }
 }
 
 function validateUniqueValues(
@@ -299,8 +253,9 @@ export function parseMandate(value: unknown): Mandate {
 
   if (!result.success) {
     throw new ContractValidationError(
+      'Mandate',
       result.error.issues.map((issue) => ({
-        code: mapZodIssueCode(issue.code),
+        code: mapSchemaIssueCode(issue.code),
         path: toJsonPointer(issue.path),
       })),
     );
@@ -309,7 +264,7 @@ export function parseMandate(value: unknown): Mandate {
   const semanticIssues = validateSemantics(result.data);
 
   if (semanticIssues.length > 0) {
-    throw new ContractValidationError(semanticIssues);
+    throw new ContractValidationError('Mandate', semanticIssues);
   }
 
   return toMandate(result.data);

@@ -20,3 +20,4 @@
 | [ADR-002](0002-identifiers-money-time.md)             | 已接受 | 标识、金额与时间表示                           |
 | [ADR-003](0003-contract-validation-zod.md)            | 已接受 | Zod 4 Contract 运行时校验与 JSON Schema 输出   |
 | [ADR-004](0004-mandate-wire-signature-profile.md)     | 已接受 | Mandate Wire 与签名封装 Profile                |
+| [ADR-005](0005-quote-pricing-signature-profile.md)    | 已接受 | Quote 固定计价、税费与签名 Profile             |

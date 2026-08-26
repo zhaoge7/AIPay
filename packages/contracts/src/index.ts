@@ -10,6 +10,12 @@ export {
 export { ValueValidationError, type ValueValidationErrorCode } from './values/validation-error.js';
 
 export {
+  ContractValidationError,
+  type ContractValidationIssue,
+  type ContractValidationIssueCode,
+} from './contract-validation.js';
+
+export {
   createMoney,
   currencyMetadata,
   MAX_MINOR_AMOUNT,
@@ -31,17 +37,26 @@ export {
 } from './values/time.js';
 
 export {
-  ContractValidationError,
   MANDATE_SIGNATURE_DOMAIN,
   MandateWireSchema,
   getMandateJsonSchema,
   getMandateSigningPayload,
   parseMandate,
-  type ContractValidationIssue,
-  type ContractValidationIssueCode,
   type Mandate,
   type MandateProof,
   type MandateSigningPayload,
   type MandateWire,
   type Sha256Digest,
 } from './mandate.js';
+
+export {
+  QUOTE_SIGNATURE_DOMAIN,
+  QuoteWireSchema,
+  getQuoteJsonSchema,
+  getQuoteSigningPayload,
+  parseQuote,
+  type Quote,
+  type QuoteProof,
+  type QuoteSigningPayload,
+  type QuoteWire,
+} from './quote.js';
