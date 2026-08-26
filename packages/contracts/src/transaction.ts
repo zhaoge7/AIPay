@@ -9,6 +9,8 @@ import {
 import { getResourceIdPattern, parseResourceId, type ResourceId } from './values/identifier.js';
 import { createMoney, MAX_MINOR_AMOUNT, type Money } from './values/money.js';
 import { parseUtcDateTime, type UtcDateTime } from './values/time.js';
+import type { Mandate } from './mandate.js';
+import type { Quote } from './quote.js';
 
 const maxMinorAmountDigits = MAX_MINOR_AMOUNT.toString().length;
 const minorAmountPattern = /^(0|[1-9][0-9]*)$/;
@@ -198,6 +200,64 @@ export function toTransactionWire(transaction: Transaction): Readonly<Transactio
   Object.freeze(wire.paymentAttemptIds);
   Object.freeze(wire.refundIds);
   return Object.freeze(wire);
+}
+
+export function assertTransactionBindings(
+  transaction: Transaction,
+  quote: Quote,
+  mandate: Mandate,
+): void {
+  const issues: ContractValidationIssue[] = [];
+
+  if (transaction.quoteId !== quote.quoteId) {
+    issues.push({ code: 'reference_mismatch', path: '/quoteId' });
+  }
+
+  if (transaction.mandateId !== mandate.mandateId) {
+    issues.push({ code: 'reference_mismatch', path: '/mandateId' });
+  }
+
+  if (transaction.principalId !== mandate.principalId) {
+    issues.push({ code: 'identity_mismatch', path: '/principalId' });
+  }
+
+  if (transaction.agentId !== mandate.agentId) {
+    issues.push({ code: 'identity_mismatch', path: '/agentId' });
+  }
+
+  if (transaction.merchantId !== quote.merchantId) {
+    issues.push({ code: 'identity_mismatch', path: '/merchantId' });
+  }
+
+  if (!mandate.allowedMerchantIds.some((merchantId) => merchantId === quote.merchantId)) {
+    issues.push({ code: 'merchant_not_allowed', path: '/merchantId' });
+  }
+
+  if (transaction.serviceId !== quote.serviceId) {
+    issues.push({ code: 'identity_mismatch', path: '/serviceId' });
+  }
+
+  if (
+    transaction.amount.amountMinor !== quote.total.amountMinor ||
+    BigInt(transaction.amount.amountMinor) > BigInt(mandate.maxPerTransaction.amountMinor)
+  ) {
+    issues.push({ code: 'amount_mismatch', path: '/amount' });
+  }
+
+  const createdAt = Date.parse(transaction.createdAt);
+
+  if (
+    createdAt < Date.parse(quote.issuedAt) ||
+    createdAt >= Date.parse(quote.expiresAt) ||
+    createdAt < Date.parse(mandate.issuedAt) ||
+    createdAt >= Date.parse(mandate.validUntil)
+  ) {
+    issues.push({ code: 'created_outside_validity', path: '/createdAt' });
+  }
+
+  if (issues.length > 0) {
+    throw new ContractValidationError('Transaction', issues);
+  }
 }
 
 export function getTransactionJsonSchema() {

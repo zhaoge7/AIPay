@@ -19,7 +19,12 @@ export type ContractValidationIssueCode =
   | 'invalid_timestamp_order'
   | 'catalog_mismatch'
   | 'retry_metadata_not_allowed'
-  | 'invalid_result_code';
+  | 'invalid_result_code'
+  | 'reference_mismatch'
+  | 'identity_mismatch'
+  | 'amount_mismatch'
+  | 'merchant_not_allowed'
+  | 'created_outside_validity';
 
 export interface ContractValidationIssue {
   readonly code: ContractValidationIssueCode;

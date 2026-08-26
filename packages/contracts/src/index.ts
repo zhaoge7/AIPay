@@ -65,6 +65,7 @@ export {
 
 export {
   TransactionWireSchema,
+  assertTransactionBindings,
   getTransactionJsonSchema,
   parseTransaction,
   toTransactionWire,
