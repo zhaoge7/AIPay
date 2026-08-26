@@ -106,3 +106,20 @@ export {
   type ApiValidationIssueWire,
   type CreateApiProblemOptions,
 } from './api-response.js';
+
+export {
+  AuditActorWireSchema,
+  AuditEventWireSchema,
+  AuditObjectWireSchema,
+  AuditResultWireSchema,
+  auditOutcomes,
+  getAuditEventJsonSchema,
+  parseAuditEvent,
+  type AuditActorWire,
+  type AuditEvent,
+  type AuditEventWire,
+  type AuditObjectType,
+  type AuditObjectWire,
+  type AuditOutcome,
+  type AuditResultWire,
+} from './audit-event.js';

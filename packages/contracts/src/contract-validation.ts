@@ -18,7 +18,8 @@ export type ContractValidationIssueCode =
   | 'duplicate_reference'
   | 'invalid_timestamp_order'
   | 'catalog_mismatch'
-  | 'retry_metadata_not_allowed';
+  | 'retry_metadata_not_allowed'
+  | 'invalid_result_code';
 
 export interface ContractValidationIssue {
   readonly code: ContractValidationIssueCode;
@@ -29,7 +30,7 @@ export class ContractValidationError extends Error {
   readonly issues: readonly Readonly<ContractValidationIssue>[];
 
   constructor(
-    contractName: 'Mandate' | 'Quote' | 'Transaction' | 'ApiProblem',
+    contractName: 'Mandate' | 'Quote' | 'Transaction' | 'ApiProblem' | 'AuditEvent',
     issues: readonly ContractValidationIssue[],
   ) {
     super(`Invalid ${contractName} contract`);
