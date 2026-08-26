@@ -3,6 +3,7 @@
   "files": [],
   "references": [
     { "path": "./packages/config" },
+    { "path": "./packages/database" },
     { "path": "./apps/web" },
     { "path": "./apps/api" },
     { "path": "./apps/worker" },

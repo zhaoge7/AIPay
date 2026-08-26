@@ -15,6 +15,10 @@ export interface WorkerConfig {
   readonly concurrency: number;
 }
 
+export interface DatabaseConfig {
+  readonly url: string;
+}
+
 export class ConfigurationError extends Error {
   readonly variables: readonly string[];
 
@@ -34,6 +38,27 @@ const positiveInteger = makeValidator<number>((input) => {
   }
 
   return value;
+});
+
+const postgresUrl = makeValidator<string>((input) => {
+  let parsed: URL;
+
+  try {
+    parsed = new URL(input);
+  } catch {
+    throw new EnvError('Expected a PostgreSQL URL');
+  }
+
+  if (
+    (parsed.protocol !== 'postgresql:' && parsed.protocol !== 'postgres:') ||
+    parsed.username.length === 0 ||
+    parsed.hostname.length === 0 ||
+    parsed.pathname.length <= 1
+  ) {
+    throw new EnvError('Expected a complete PostgreSQL URL');
+  }
+
+  return input;
 });
 
 function redactedReporter<T>({ errors }: ReporterOptions<T>): void {
@@ -87,4 +112,19 @@ export function loadWorkerConfig(environment: unknown): WorkerConfig {
     environment: env.NODE_ENV,
     concurrency: env.AIPAY_WORKER_CONCURRENCY,
   });
+}
+
+export function loadDatabaseConfig(environment: unknown): DatabaseConfig {
+  const env = cleanEnv(
+    environment,
+    {
+      AIPAY_DATABASE_URL: postgresUrl({
+        desc: 'PostgreSQL connection URL',
+        example: 'postgresql://aipay:password@127.0.0.1:54329/aipay_dev',
+      }),
+    },
+    { reporter: redactedReporter },
+  );
+
+  return Object.freeze({ url: env.AIPAY_DATABASE_URL });
 }

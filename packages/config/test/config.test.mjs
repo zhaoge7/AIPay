@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { ConfigurationError, loadApiConfig, loadWorkerConfig } from '../dist/index.js';
+import {
+  ConfigurationError,
+  loadApiConfig,
+  loadDatabaseConfig,
+  loadWorkerConfig,
+} from '../dist/index.js';
 
 test('loads and freezes valid API configuration', () => {
   const config = loadApiConfig({
@@ -78,4 +83,35 @@ test('rejects unsupported runtime environments', () => {
       return true;
     },
   );
+});
+
+test('loads a PostgreSQL URL without copying unrelated secrets', () => {
+  const databaseUrl = 'postgresql://aipay:local-password@127.0.0.1:54329/aipay_test';
+  const config = loadDatabaseConfig({
+    AIPAY_DATABASE_URL: databaseUrl,
+    UNUSED_SECRET: 'must-not-be-copied',
+  });
+
+  assert.deepEqual(config, { url: databaseUrl });
+  assert.equal(Object.isFrozen(config), true);
+  assert.equal(JSON.stringify(config).includes('must-not-be-copied'), false);
+});
+
+test('rejects incomplete or non-PostgreSQL database URLs without exposing them', () => {
+  for (const invalidUrl of [
+    'mysql://aipay:secret@127.0.0.1/aipay_test',
+    'postgresql://127.0.0.1/aipay_test',
+    'postgresql://aipay@127.0.0.1',
+    'not-a-url',
+  ]) {
+    assert.throws(
+      () => loadDatabaseConfig({ AIPAY_DATABASE_URL: invalidUrl }),
+      (error) => {
+        assert.equal(error instanceof ConfigurationError, true);
+        assert.deepEqual(error.variables, ['AIPAY_DATABASE_URL']);
+        assert.equal(error.message.includes(invalidUrl), false);
+        return true;
+      },
+    );
+  }
 });

@@ -9,7 +9,7 @@ AIPay 是面向 AI Agent 的支付编排与信任层。本仓库当前处于工�
 - Corepack
 - pnpm 11（精确版本由根目录 `package.json` 固定）
 
-当前骨架的安装和启动不需要 Docker 或数据库。
+数据库任务需要 Docker Engine；仓库脚本不依赖 Docker Compose 或本机 `psql`。
 
 ## 从新环境启动
 
@@ -32,6 +32,20 @@ pnpm run check
 pnpm run test
 ```
 
+启动固定版本的本地 PostgreSQL 并应用迁移：
+
+```bash
+pnpm run db:up
+pnpm run db:migrate
+```
+
+`db:reset` 只允许重建回环地址上以 `_dev` 或 `_test` 结尾的数据库。停止容器会保留开发数据卷：
+
+```bash
+pnpm run db:reset
+pnpm run db:down
+```
+
 构建共享配置包，然后分别启动 API 和 Worker 的当前入口：
 
 ```bash
@@ -52,6 +66,7 @@ node --env-file=.env apps/worker/src/index.ts
 | `AIPAY_API_HOST`           | API 绑定地址                                       | `127.0.0.1`   |
 | `AIPAY_API_PORT`           | API 监听端口                                       | `3000`        |
 | `AIPAY_WORKER_CONCURRENCY` | Worker 最大并发数，必须为正整数                    | `1`           |
+| `AIPAY_DATABASE_URL`       | PostgreSQL 连接 URL                                | 本地开发 URL  |
 
 配置无效时，程序只报告变量名，不回显变量值。
 
@@ -66,6 +81,10 @@ node --env-file=.env apps/worker/src/index.ts
 | `pnpm run format:check` | 检查 Prettier 格式                     |
 | `pnpm run check`        | 依次执行类型、Lint 和格式检查          |
 | `pnpm run test`         | 执行全部 workspace 测试                |
+| `pnpm run db:up`        | 启动固定版本的本地 PostgreSQL          |
+| `pnpm run db:migrate`   | 应用所有待执行迁移                     |
+| `pnpm run db:reset`     | 安全重建开发/测试数据库并重放迁移      |
+| `pnpm run db:down`      | 停止数据库容器并保留开发数据卷         |
 
 ## 目录结构
 
@@ -76,15 +95,14 @@ apps/
   worker/       异步任务处理
 packages/
   config/       运行配置加载与校验
+  database/     PostgreSQL 访问、迁移与本地生命周期
   contracts/    共享接口契约
   payment/      支付通道抽象
   policy/       确定性授权策略
   sdk-ts/       TypeScript SDK
-docs/
-  adr/          已接受的架构决策记录
 ```
 
-架构边界、数据事务和异步策略见 [ADR-001](docs/adr/0001-modular-monolith-postgresql-outbox.md)。统一标识、金额和时间表示见 [ADR-002](docs/adr/0002-identifiers-money-time.md)。完整索引和选型留档规则见 [架构决策记录](docs/adr/README.md)。
+架构和选型记录按仓库策略仅保存在本地开发清单，不上传 `docs/` 目录。
 
 ## 常见问题
 

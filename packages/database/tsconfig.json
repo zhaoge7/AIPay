@@ -8,8 +8,7 @@
     "noEmitOnError": true,
     "outDir": "dist",
     "rootDir": "src",
-    "sourceMap": true,
-    "types": ["node"]
+    "sourceMap": true
   },
   "include": ["src/**/*.ts"]
 }
