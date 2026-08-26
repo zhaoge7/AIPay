@@ -1,0 +1,6 @@
+{
+  "name": "@aipay/sdk-ts",
+  "version": "0.0.0",
+  "private": true,
+  "description": "AIPay TypeScript SDK"
+}

@@ -1,0 +1,16 @@
+{
+  "name": "@aipay/config",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Validated AIPay runtime configuration",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc --build",
+    "test": "pnpm run build && node --test test/**/*.test.mjs"
+  },
+  "dependencies": {
+    "envalid": "8.2.0"
+  }
+}

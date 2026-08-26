@@ -1,0 +1,8 @@
+node_modules/
+dist/
+build/
+.next/
+coverage/
+pnpm-lock.yaml
+AIPay项目企划书.md
+DEVELOPMENT_CHECKLIST.md

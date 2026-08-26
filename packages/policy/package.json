@@ -1,0 +1,6 @@
+{
+  "name": "@aipay/policy",
+  "version": "0.0.0",
+  "private": true,
+  "description": "AIPay deterministic authorization policy"
+}
