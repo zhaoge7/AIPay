@@ -12,6 +12,7 @@ const { Client } = pg;
 const discardLog = () => undefined;
 const expectedTables = [
   'agents',
+  'api_keys',
   'audit_events',
   'auth_sessions',
   'deliveries',

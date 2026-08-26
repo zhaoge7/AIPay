@@ -1,4 +1,4 @@
-import { CamelCasePlugin, Kysely, PostgresDialect, type Generated } from 'kysely';
+import { CamelCasePlugin, Kysely, PostgresDialect, type Generated, type Transaction } from 'kysely';
 import pg from 'pg';
 
 const { Pool } = pg;
@@ -25,9 +25,24 @@ export interface AuthSessionTable {
   revokedAt: Date | null;
 }
 
+export interface ApiKeyTable {
+  id: Generated<string>;
+  developerId: string;
+  name: string;
+  tokenHash: Uint8Array;
+  tokenHint: string;
+  status: Generated<'active' | 'revoked'>;
+  createdAt: Generated<Date>;
+  expiresAt: Date;
+  lastUsedAt: Date | null;
+  revokedAt: Date | null;
+  replacedByKeyId: string | null;
+}
+
 export interface AIPayDatabase {
   developers: DeveloperTable;
   authSessions: AuthSessionTable;
+  apiKeys: ApiKeyTable;
 }
 
 export interface CreateDatabaseOptions {
@@ -50,3 +65,4 @@ export function createDatabase(
 }
 
 export type Database = Kysely<AIPayDatabase>;
+export type DatabaseTransaction = Transaction<AIPayDatabase>;

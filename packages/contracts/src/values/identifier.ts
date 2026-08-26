@@ -4,6 +4,7 @@ export const resourcePrefixes = [
   'dev',
   'agt',
   'key',
+  'apk',
   'mch',
   'svc',
   'mdt',

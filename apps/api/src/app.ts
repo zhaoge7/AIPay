@@ -1,16 +1,11 @@
-import { randomBytes } from 'node:crypto';
-
 import cookie from '@fastify/cookie';
-import {
-  API_PROBLEM_MEDIA_TYPE,
-  createApiProblem,
-  createApiSuccess,
-  type ApiProblemWire,
-} from '@aipay/contracts';
+import { createApiProblem, createApiSuccess } from '@aipay/contracts';
 import type { Database } from '@aipay/database';
 import Fastify, { type FastifyError, type FastifyReply } from 'fastify';
 
+import { registerApiKeyRoutes } from './api-keys/routes.js';
 import { AuthError, AuthService, type AuthResult } from './auth/service.js';
+import { createTraceId, sendProblem } from './http/problem.js';
 
 const authBodySchema = {
   type: 'object',
@@ -31,14 +26,6 @@ export interface BuildAppOptions {
   readonly database: Database;
   readonly secureCookies?: boolean;
   readonly logger?: boolean;
-}
-
-function createTraceId(): string {
-  return randomBytes(16).toString('hex');
-}
-
-function sendProblem(reply: FastifyReply, problem: Readonly<ApiProblemWire>) {
-  return reply.type(API_PROBLEM_MEDIA_TYPE).status(problem.status).send(problem);
 }
 
 function sendAuthError(reply: FastifyReply, traceId: string, error: AuthError) {
@@ -88,6 +75,8 @@ export async function buildApp(options: BuildAppOptions) {
   const secureCookies = options.secureCookies ?? false;
 
   await app.register(cookie);
+  app.decorateRequest('authenticatedDeveloperId', null);
+  registerApiKeyRoutes(app, options.database);
 
   app.setErrorHandler((error, request, reply) => {
     const traceId = createTraceId();

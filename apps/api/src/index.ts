@@ -28,4 +28,5 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.a
 
 export { buildApp } from './app.js';
 export { AuthError, AuthService, type AuthResult } from './auth/service.js';
+export { ApiKeyError, ApiKeyService } from './api-keys/service.js';
 export { ARGON2ID_OPTIONS, hashPassword, verifyPassword } from './auth/password.js';

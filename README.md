@@ -67,6 +67,17 @@ curl -i http://127.0.0.1:3000/v1/auth/login \
 
 成功响应通过 `Set-Cookie` 返回 HttpOnly、SameSite=Lax 会话 Cookie。生产环境自动增加 Secure；数据库只保存 Argon2id 密码哈希和会话 Token 的 SHA-256 摘要。Worker 当前入口仍只校验配置，管理端尚无开发服务器。
 
+登录后可通过会话 Cookie 管理 API Key：
+
+| 方法     | 路径                            | 用途                                  |
+| -------- | ------------------------------- | ------------------------------------- |
+| `POST`   | `/v1/api-keys`                  | 创建 Key；完整 Token 只在本次响应显示 |
+| `GET`    | `/v1/api-keys`                  | 列出脱敏 Key 元数据                   |
+| `POST`   | `/v1/api-keys/:apiKeyId/rotate` | 原子吊销旧 Key 并创建替代 Key         |
+| `DELETE` | `/v1/api-keys/:apiKeyId`        | 幂等吊销 Key                          |
+
+API Key 默认 90 天到期，可在创建或轮换请求中通过 `expiresInDays` 设置 1 至 365 天。数据库只保存完整 Token 的 SHA-256 摘要。
+
 ## 环境变量
 
 本地开发从 `.env.example` 创建 `.env`。`.env` 已被 Git 忽略，不要在其中提交真实密钥、Token 或用户数据。
