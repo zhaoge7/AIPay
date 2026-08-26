@@ -83,3 +83,26 @@ export {
   type TransactionEvent,
   type TransactionTransitionErrorCode,
 } from './transaction-state-machine.js';
+
+export {
+  API_JSON_MEDIA_TYPE,
+  API_PROBLEM_MEDIA_TYPE,
+  ApiProblemWireSchema,
+  ApiResponseMetaWireSchema,
+  ApiValidationIssueWireSchema,
+  apiErrorCatalog,
+  apiErrorCodes,
+  createApiProblem,
+  createApiSuccess,
+  createApiSuccessSchema,
+  getApiProblemJsonSchema,
+  parseApiProblem,
+  type ApiErrorCode,
+  type ApiErrorDefinition,
+  type ApiErrorKind,
+  type ApiProblemWire,
+  type ApiResponseMeta,
+  type ApiSuccess,
+  type ApiValidationIssueWire,
+  type CreateApiProblemOptions,
+} from './api-response.js';
