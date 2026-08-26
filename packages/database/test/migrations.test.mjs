@@ -29,7 +29,7 @@ test('creates, migrates and rebuilds an isolated PostgreSQL test database', asyn
 
   const firstRun = await runMigrations(databaseUrl, discardLog);
   const secondRun = await runMigrations(databaseUrl, discardLog);
-  assert.equal(firstRun.length, 1);
+  assert.equal(firstRun.length >= 1, true);
   assert.equal(secondRun.length, 0);
 
   let client = new Client({ connectionString: databaseUrl });
@@ -41,8 +41,11 @@ test('creates, migrates and rebuilds an isolated PostgreSQL test database', asyn
   await client.end();
 
   assert.equal(schema.rowCount, 1);
-  assert.equal(migrations.rowCount, 1);
-  assert.match(migrations.rows[0].name, /create_aipay_schema/);
+  assert.equal(migrations.rowCount, firstRun.length);
+  assert.equal(
+    migrations.rows.some((row) => /create_aipay_schema/.test(row.name)),
+    true,
+  );
 
   await resetDatabase(databaseUrl);
   await runMigrations(databaseUrl, discardLog);

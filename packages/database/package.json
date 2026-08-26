@@ -8,9 +8,10 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsc --build",
-    "test": "pnpm run build && node --test test/**/*.test.mjs"
+    "test": "pnpm run build && node --test --test-concurrency=1 test/**/*.test.mjs"
   },
   "dependencies": {
+    "@aipay/contracts": "workspace:*",
     "node-pg-migrate": "9.0.0",
     "pg": "8.23.0"
   },
