@@ -59,6 +59,29 @@ async function waitUntilHealthy(name) {
   throw new Error(`PostgreSQL container ${name} did not become healthy within 60 seconds`);
 }
 
+async function waitUntilInitializationCompletes(name) {
+  const deadline = Date.now() + 60_000;
+
+  while (Date.now() < deadline) {
+    const logs = runDocker(['logs', name], { allowFailure: true });
+    const output = `${logs.stdout}\n${logs.stderr}`;
+
+    if (output.includes('PostgreSQL init process complete; ready for start up.')) {
+      return;
+    }
+
+    const status = inspectContainer(name, '{{.State.Status}}');
+
+    if (status === 'exited' || status === 'dead') {
+      throw new Error(`PostgreSQL initialization failed: ${output.trim()}`);
+    }
+
+    await setTimeout(500);
+  }
+
+  throw new Error(`PostgreSQL container ${name} did not initialize within 60 seconds`);
+}
+
 function resolvePublishedPort(name) {
   const value = runDocker(['port', name, '5432/tcp']).stdout.trim();
   const port = Number(value.slice(value.lastIndexOf(':') + 1));
@@ -77,7 +100,9 @@ export async function startPostgresContainer(config = developmentContainer) {
     throw new Error(`Container ${config.name} exists but is not owned by AIPay`);
   }
 
-  if (existingLabel === undefined) {
+  const isNewContainer = existingLabel === undefined;
+
+  if (isNewContainer) {
     const publish =
       config.hostPort === undefined ? '127.0.0.1::5432' : `127.0.0.1:${config.hostPort}:5432`;
     const args = [
@@ -113,6 +138,10 @@ export async function startPostgresContainer(config = developmentContainer) {
     runDocker(args);
   } else if (inspectContainer(config.name, '{{.State.Running}}') !== 'true') {
     runDocker(['start', config.name]);
+  }
+
+  if (isNewContainer) {
+    await waitUntilInitializationCompletes(config.name);
   }
 
   await waitUntilHealthy(config.name);

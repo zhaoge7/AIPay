@@ -46,15 +46,26 @@ pnpm run db:reset
 pnpm run db:down
 ```
 
-构建共享配置包，然后分别启动 API 和 Worker 的当前入口：
+构建全部 workspace，然后启动 API：
 
 ```bash
 pnpm run build
-node --env-file=.env apps/api/src/index.ts
-node --env-file=.env apps/worker/src/index.ts
+node --env-file=.env apps/api/dist/index.js
 ```
 
-当前两个入口只负责加载并校验配置。命令无输出并以状态码 `0` 退出即表示启动校验成功；它们暂时不会持续监听端口或处理任务。管理端目前也只有空入口，尚无开发服务器。根命令 `pnpm run dev` 会在后续应用加入 `dev` 脚本后统一并行启动它们。
+API 默认监听 `.env` 中的地址，并提供开发者注册和登录：
+
+```bash
+curl -i http://127.0.0.1:3000/v1/auth/register \
+  -H 'content-type: application/json' \
+  --data '{"email":"developer@example.com","password":"replace-with-a-long-local-password"}'
+
+curl -i http://127.0.0.1:3000/v1/auth/login \
+  -H 'content-type: application/json' \
+  --data '{"email":"developer@example.com","password":"replace-with-a-long-local-password"}'
+```
+
+成功响应通过 `Set-Cookie` 返回 HttpOnly、SameSite=Lax 会话 Cookie。生产环境自动增加 Secure；数据库只保存 Argon2id 密码哈希和会话 Token 的 SHA-256 摘要。Worker 当前入口仍只校验配置，管理端尚无开发服务器。
 
 ## 环境变量
 

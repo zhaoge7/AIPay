@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@aipay/contracts": "workspace:*",
+    "kysely": "0.29.5",
     "node-pg-migrate": "9.0.0",
     "pg": "8.23.0"
   },

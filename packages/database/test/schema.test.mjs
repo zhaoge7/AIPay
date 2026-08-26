@@ -13,6 +13,7 @@ const discardLog = () => undefined;
 const expectedTables = [
   'agents',
   'audit_events',
+  'auth_sessions',
   'deliveries',
   'developers',
   'mandate_allowed_categories',
@@ -69,7 +70,11 @@ test('creates the complete core schema and enforces Contract bindings', async (c
     assert.equal(statusConstraint.rows[0].definition.includes(`'${status}'`), true);
   }
 
-  const developer = await client.query('INSERT INTO aipay.developers DEFAULT VALUES RETURNING id');
+  const developer = await client.query(
+    `INSERT INTO aipay.developers (email, password_hash)
+      VALUES ('schema-test@example.com', '$argon2id$v=19$m=19456,t=2,p=1$c2FsdA$YWJj')
+      RETURNING id`,
+  );
   const developerId = developer.rows[0].id;
   const agent = await client.query(
     'INSERT INTO aipay.agents (developer_id) VALUES ($1) RETURNING id',
