@@ -1,9 +1,11 @@
 import cookie from '@fastify/cookie';
+import rawBody from 'fastify-raw-body';
 import { createApiProblem, createApiSuccess } from '@aipay/contracts';
 import type { Database } from '@aipay/database';
 import Fastify, { type FastifyError, type FastifyReply } from 'fastify';
 
 import { registerAgentRoutes } from './agents/routes.js';
+import { registerAgentSignatureRoutes } from './agent-signatures/routes.js';
 import { registerApiKeyRoutes } from './api-keys/routes.js';
 import { AuthError, AuthService, type AuthResult } from './auth/service.js';
 import { createTraceId, sendProblem } from './http/problem.js';
@@ -76,9 +78,13 @@ export async function buildApp(options: BuildAppOptions) {
   const secureCookies = options.secureCookies ?? false;
 
   await app.register(cookie);
+  await app.register(rawBody, { global: false, encoding: false, runFirst: true });
   app.decorateRequest('authenticatedDeveloperId', null);
+  app.decorateRequest('authenticatedAgentId', null);
+  app.decorateRequest('authenticatedSigningKeyId', null);
   registerApiKeyRoutes(app, options.database);
   registerAgentRoutes(app, options.database);
+  registerAgentSignatureRoutes(app, options.database);
 
   app.setErrorHandler((error, request, reply) => {
     const traceId = createTraceId();

@@ -30,4 +30,5 @@ export { buildApp } from './app.js';
 export { AuthError, AuthService, type AuthResult } from './auth/service.js';
 export { ApiKeyError, ApiKeyService } from './api-keys/service.js';
 export { AgentError, AgentService } from './agents/service.js';
+export { AgentSignatureError, AgentSignatureService } from './agent-signatures/service.js';
 export { ARGON2ID_OPTIONS, hashPassword, verifyPassword } from './auth/password.js';

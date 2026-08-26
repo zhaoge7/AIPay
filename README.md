@@ -88,6 +88,8 @@ Agent 密钥对必须由 Agent 客户端生成，AIPay 只接收规范 base64url
 
 Agent 私钥不得发送给 AIPay，也不得写入项目 `.env`、日志或数据库。
 
+Agent 请求验签采用 RFC 9421。当前验证端点为 `POST /v1/agent/verify`，签名标签固定 `aipay`，必须按顺序覆盖 `@method`、`@target-uri`、`content-digest`、`content-type` 和 `x-aipay-agent-id`，并携带 `created`、`expires`、128-bit `nonce`、`keyid`、`alg="ed25519"`、`tag="aipay-agent-v1"`。签名窗口最长 300 秒；正文摘要格式为 RFC 9530 风格 `sha-256=:base64:`。
+
 ## 环境变量
 
 本地开发从 `.env.example` 创建 `.env`。`.env` 已被 Git 忽略，不要在其中提交真实密钥、Token 或用户数据。

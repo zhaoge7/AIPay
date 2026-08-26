@@ -11,6 +11,7 @@ import { removePostgresContainer, startPostgresContainer } from '../scripts/post
 const { Client } = pg;
 const discardLog = () => undefined;
 const expectedTables = [
+  'agent_request_nonces',
   'agents',
   'api_keys',
   'audit_events',

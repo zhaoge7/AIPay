@@ -61,12 +61,21 @@ export interface SigningKeyTable {
   revokedAt: Date | null;
 }
 
+export interface AgentRequestNonceTable {
+  id: Generated<string>;
+  agentId: string;
+  nonceHash: Uint8Array;
+  createdAt: Generated<Date>;
+  expiresAt: Date;
+}
+
 export interface AIPayDatabase {
   developers: DeveloperTable;
   authSessions: AuthSessionTable;
   apiKeys: ApiKeyTable;
   agents: AgentTable;
   signingKeys: SigningKeyTable;
+  agentRequestNonces: AgentRequestNonceTable;
 }
 
 export interface CreateDatabaseOptions {

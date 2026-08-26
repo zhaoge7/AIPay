@@ -82,6 +82,45 @@ async function waitUntilInitializationCompletes(name) {
   throw new Error(`PostgreSQL container ${name} did not initialize within 60 seconds`);
 }
 
+async function waitUntilAcceptingQueries(config) {
+  const deadline = Date.now() + 60_000;
+
+  while (Date.now() < deadline) {
+    const result = runDocker(
+      [
+        'exec',
+        config.name,
+        'psql',
+        '--username',
+        config.user,
+        '--dbname',
+        config.database,
+        '--tuples-only',
+        '--no-align',
+        '--command',
+        'SELECT 1',
+      ],
+      { allowFailure: true },
+    );
+
+    if (result.status === 0 && result.stdout.trim() === '1') {
+      return;
+    }
+
+    const status = inspectContainer(config.name, '{{.State.Status}}');
+
+    if (status === 'exited' || status === 'dead') {
+      throw new Error(
+        `PostgreSQL stopped before accepting queries: ${(result.stderr || result.stdout).trim()}`,
+      );
+    }
+
+    await setTimeout(250);
+  }
+
+  throw new Error(`PostgreSQL container ${config.name} did not accept queries within 60 seconds`);
+}
+
 function resolvePublishedPort(name) {
   const value = runDocker(['port', name, '5432/tcp']).stdout.trim();
   const port = Number(value.slice(value.lastIndexOf(':') + 1));
@@ -145,6 +184,7 @@ export async function startPostgresContainer(config = developmentContainer) {
   }
 
   await waitUntilHealthy(config.name);
+  await waitUntilAcceptingQueries(config);
   const hostPort = resolvePublishedPort(config.name);
 
   return Object.freeze({
