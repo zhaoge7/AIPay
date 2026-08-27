@@ -15,6 +15,7 @@
     "@aipay/config": "workspace:*",
     "@aipay/contracts": "workspace:*",
     "@aipay/database": "workspace:*",
+    "@aipay/policy": "workspace:*",
     "@fastify/cookie": "11.1.2",
     "@node-rs/argon2": "2.1.0",
     "@peac/http-signatures": "0.16.4",

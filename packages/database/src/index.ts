@@ -115,6 +115,8 @@ export interface MandateTable {
   createdAt: Generated<Date>;
   statusChangedAt: Generated<Date>;
   revokedAt: Date | null;
+  spentAmountMinor: Generated<string>;
+  completedTransactionCount: Generated<number>;
 }
 
 export interface MandateAllowedMerchantTable {

@@ -108,6 +108,8 @@ pnpm --filter @aipay/api generate:issuer
 
 `GET/POST /v1/mandates/:mandateId/lifecycle` 用于查询及执行 pause、resume、revoke。交易入口必须额外调用 lifecycle guard；proof 验真不等于授权仍有效。guard 在 `now >= validUntil` 时先原子落库 expired，再拒绝使用。
 
+最终消费计数通过 `MandateUsageService` 在 Mandate 行锁内更新 `spent_amount_minor` 和 `completed_transaction_count`，固定检查单笔、次数、累计预算；支付前在途额度不得调用该接口冒充完成，必须使用后续 reservation 流程。
+
 ## 环境变量
 
 本地开发从 `.env.example` 创建 `.env`。`.env` 已被 Git 忽略，不要在其中提交真实密钥、Token 或用户数据。

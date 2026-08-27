@@ -39,4 +39,5 @@ export { ServiceCatalogService, ServiceError } from './services/service.js';
 export { MandateDraftError, MandateDraftService } from './mandates/service.js';
 export { MandateIssuer, MandateIssuerError, MandateVerifier } from './mandates/issuer.js';
 export { MandateLifecycleError, MandateLifecycleService } from './mandates/lifecycle.js';
+export { MandateUsageError, MandateUsageService } from './mandates/usage.js';
 export { ARGON2ID_OPTIONS, hashPassword, verifyPassword } from './auth/password.js';

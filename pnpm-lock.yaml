@@ -41,6 +41,9 @@ importers:
       '@aipay/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@aipay/policy':
+        specifier: workspace:*
+        version: link:../../packages/policy
       '@fastify/cookie':
         specifier: 11.1.2
         version: 11.1.2
