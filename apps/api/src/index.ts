@@ -46,4 +46,5 @@ export { QuoteDraftError, QuoteDraftService } from './quotes/drafts.js';
 export { QuoteSigningError, QuoteSigningService } from './quotes/signing.js';
 export { TransactionCreationError, TransactionCreationService } from './transactions/create.js';
 export { PaymentExecutionError, PaymentExecutionService } from './payments/execution.js';
+export { PaymentWebhookError, PaymentWebhookService } from './payments/webhook.js';
 export { ARGON2ID_OPTIONS, hashPassword, verifyPassword } from './auth/password.js';

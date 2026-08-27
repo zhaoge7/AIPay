@@ -2,6 +2,7 @@ import cookie from '@fastify/cookie';
 import rawBody from 'fastify-raw-body';
 import { createApiProblem, createApiSuccess } from '@aipay/contracts';
 import type { Database } from '@aipay/database';
+import type { PaymentProvider } from '@aipay/payment';
 import Fastify, { type FastifyError, type FastifyReply } from 'fastify';
 
 import { registerAgentRoutes } from './agents/routes.js';
@@ -17,6 +18,7 @@ import { registerCatalogRoutes } from './services/catalog-routes.js';
 import { registerServiceRoutes } from './services/routes.js';
 import { registerQuoteRoutes } from './quotes/routes.js';
 import { registerQuoteSigningRoutes } from './quotes/signing-routes.js';
+import { registerAlipayWebhookRoutes } from './payments/webhook-routes.js';
 import { registerManualApprovalRoutes } from './transactions/manual-approval-routes.js';
 import { registerTransactionCreationRoutes } from './transactions/create-routes.js';
 
@@ -40,6 +42,7 @@ export interface BuildAppOptions {
   readonly secureCookies?: boolean;
   readonly logger?: boolean;
   readonly mandateIssuer?: MandateIssuer;
+  readonly alipayProvider?: PaymentProvider;
 }
 
 function sendAuthError(reply: FastifyReply, traceId: string, error: AuthError) {
@@ -90,6 +93,13 @@ export async function buildApp(options: BuildAppOptions) {
 
   await app.register(cookie);
   await app.register(rawBody, { global: false, encoding: false, runFirst: true });
+  app.addContentTypeParser(
+    'application/x-www-form-urlencoded',
+    { parseAs: 'buffer' },
+    (_request, body, done) => {
+      done(null, body);
+    },
+  );
   app.decorateRequest('authenticatedDeveloperId', null);
   app.decorateRequest('authenticatedAgentId', null);
   app.decorateRequest('authenticatedSigningKeyId', null);
@@ -105,6 +115,9 @@ export async function buildApp(options: BuildAppOptions) {
   registerQuoteRoutes(app, options.database);
   registerQuoteSigningRoutes(app, options.database);
   registerTransactionCreationRoutes(app, options.database);
+  if (options.alipayProvider !== undefined) {
+    registerAlipayWebhookRoutes(app, options.database, options.alipayProvider);
+  }
 
   app.setErrorHandler((error, request, reply) => {
     const traceId = createTraceId();

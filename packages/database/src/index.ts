@@ -226,6 +226,19 @@ export interface PaymentProviderCallTable {
   durationMs: number | null;
 }
 
+export interface ProviderWebhookEventTable {
+  id: Generated<string>;
+  provider: string;
+  providerEventId: string;
+  eventType: 'payment.updated' | 'refund.updated';
+  payloadDigest: Uint8Array;
+  paymentAttemptId: string | null;
+  outcome: Generated<'processing' | 'applied' | 'ignored'>;
+  receivedAt: Date;
+  occurredAt: Date;
+  createdAt: Generated<Date>;
+}
+
 export interface OutboxEventTable {
   id: Generated<string>;
   aggregateType: string;
@@ -299,6 +312,7 @@ export interface AIPayDatabase {
   paymentAttempts: PaymentAttemptTable;
   idempotencyRecords: IdempotencyRecordTable;
   paymentProviderCalls: PaymentProviderCallTable;
+  providerWebhookEvents: ProviderWebhookEventTable;
   outboxEvents: OutboxEventTable;
   webhookDeliveries: WebhookDeliveryTable;
   webhookDeliveryAttempts: WebhookDeliveryAttemptTable;

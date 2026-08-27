@@ -7,7 +7,7 @@ import {
   parseResourceId,
   type ResourceId,
 } from '@aipay/contracts';
-import { enqueueOutboxEvent, type Database, type DatabaseTransaction } from '@aipay/database';
+import type { Database } from '@aipay/database';
 import {
   PaymentProviderError,
   type PaymentProvider,
@@ -15,6 +15,8 @@ import {
   type ProviderPaymentResult,
   type ProviderPaymentStatus,
 } from '@aipay/payment';
+
+import { enqueuePaymentStateChange, transactionStatus } from './state.js';
 
 export type PaymentExecutionErrorCode =
   'not_found' | 'invalid_state' | 'provider_error' | 'provider_reference_missing';
@@ -58,61 +60,6 @@ interface ExecutionContext {
 
 function requestDigest(value: unknown): Buffer {
   return createHash('sha256').update(JSON.stringify(value), 'utf8').digest();
-}
-
-function transactionStatus(status: ProviderPaymentStatus) {
-  switch (status) {
-    case 'pending':
-      return 'payment_pending' as const;
-    case 'succeeded':
-      return 'paid' as const;
-    case 'failed':
-      return 'failed' as const;
-    case 'unknown':
-      return 'payment_review' as const;
-  }
-}
-
-function paymentEventType(status: ProviderPaymentStatus) {
-  switch (status) {
-    case 'succeeded':
-      return 'transaction.paid' as const;
-    case 'failed':
-      return 'transaction.failed' as const;
-    case 'unknown':
-      return 'transaction.payment_review' as const;
-    case 'pending':
-      return null;
-  }
-}
-
-async function enqueuePaymentStateChange(
-  transaction: DatabaseTransaction,
-  context: ExecutionContext,
-  status: ProviderPaymentStatus,
-  providerReference: string | null,
-  errorCode: string | null,
-): Promise<void> {
-  const eventType = paymentEventType(status);
-
-  if (eventType === null) {
-    return;
-  }
-
-  await enqueueOutboxEvent(transaction, {
-    aggregateType: 'transaction',
-    aggregateId: context.transactionId,
-    eventType,
-    payload: {
-      merchantId: context.merchantId,
-      transactionId: context.transactionId,
-      paymentAttemptId: context.paymentAttemptId,
-      paymentStatus: status,
-      provider: context.provider,
-      providerReference,
-      errorCode,
-    },
-  });
 }
 
 function toAttemptView(

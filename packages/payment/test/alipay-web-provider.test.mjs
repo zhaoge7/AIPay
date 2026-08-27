@@ -1,16 +1,18 @@
 import assert from 'node:assert/strict';
-import { generateKeyPairSync } from 'node:crypto';
+import { Buffer } from 'node:buffer';
+import { createSign, generateKeyPairSync } from 'node:crypto';
 import test from 'node:test';
-import { URL } from 'node:url';
+import { URL, URLSearchParams } from 'node:url';
 
 import { AlipayWebPaymentProvider, PaymentProviderError } from '../dist/index.js';
 
-function provider() {
+function fixture() {
   const appKeys = generateKeyPairSync('rsa', { modulusLength: 2048 });
   const platformKeys = generateKeyPairSync('rsa', { modulusLength: 2048 });
 
-  return new AlipayWebPaymentProvider({
+  const alipay = new AlipayWebPaymentProvider({
     appId: '2024001234567890',
+    sellerId: '2088123456789012',
     privateKeyPkcs8Base64: appKeys.privateKey
       .export({ format: 'der', type: 'pkcs8' })
       .toString('base64'),
@@ -21,6 +23,41 @@ function provider() {
     returnUrl: 'https://aipay.example.com/payments/return',
     now: () => new Date('2026-08-28T08:00:00.000Z'),
   });
+
+  return { alipay, platformPrivateKey: platformKeys.privateKey };
+}
+
+function provider() {
+  return fixture().alipay;
+}
+
+function notification(privateKey, overrides = {}) {
+  const parameters = {
+    notify_time: '2026-08-28 16:00:00',
+    notify_type: 'trade_status_sync',
+    notify_id: 'notify_gate_001',
+    app_id: '2024001234567890',
+    auth_app_id: '2024001234567890',
+    trade_no: '2026082822001234567890123456',
+    out_trade_no: 'AIPAY01890F3EB1017CC2A8C57F6A1B2C3D4E',
+    seller_id: '2088123456789012',
+    total_amount: '12.34',
+    trade_status: 'TRADE_SUCCESS',
+    gmt_payment: '2026-08-28 15:59:58',
+    sign_type: 'RSA2',
+    ...overrides,
+  };
+  const content = Object.entries(parameters)
+    .filter(([name]) => name !== 'sign_type')
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([name, value]) => `${name}=${value}`)
+    .join('&');
+  const signature = createSign('RSA-SHA256').update(content, 'utf8').sign(privateKey, 'base64');
+  return {
+    headers: { 'content-type': 'application/x-www-form-urlencoded; charset=utf-8' },
+    rawBody: Buffer.from(new URLSearchParams({ ...parameters, sign: signature }).toString()),
+    receivedAt: '2026-08-28T08:00:01.000Z',
+  };
 }
 
 const request = {
@@ -70,6 +107,7 @@ test('rejects unsafe endpoints, currency and page-pay amount boundaries', async 
     () =>
       new AlipayWebPaymentProvider({
         appId: '2024001234567890',
+        sellerId: '2088123456789012',
         privateKeyPkcs8Base64: 'not-used',
         alipayPublicKeySpkiBase64: 'not-used',
         gatewayUrl: 'https://attacker.example.com/gateway.do',
@@ -95,12 +133,59 @@ test('advertises only implemented capabilities until later P6 tasks', async () =
   assert.deepEqual(alipay.capabilities, {
     supportsActiveQuery: false,
     supportsRefunds: false,
-    supportsWebhookSignatures: false,
+    supportsWebhookSignatures: true,
   });
   await assert.rejects(
     alipay.queryPayment({ providerPaymentId: 'alipay_out_order' }),
     (error) =>
       error instanceof PaymentProviderError && error.code === 'QUERY_PAYMENT_NOT_AVAILABLE',
   );
-  assert.equal(alipay.acknowledgeWebhook({ eventId: 'not-verified' }).body, 'failure');
+  assert.equal(alipay.acknowledgeWebhook({ eventId: 'verified' }).body, 'success');
+});
+
+test('verifies and binds RSA2 payment notifications', async () => {
+  const { alipay, platformPrivateKey } = fixture();
+  const event = await alipay.verifyWebhook(notification(platformPrivateKey));
+
+  assert.deepEqual(event, {
+    eventId: 'notify_gate_001',
+    eventType: 'payment.updated',
+    providerPaymentId: 'alipay_out_AIPAY01890F3EB1017CC2A8C57F6A1B2C3D4E',
+    providerTransactionId: '2026082822001234567890123456',
+    amount: { currency: 'CNY', amountMinor: '1234' },
+    status: 'succeeded',
+    occurredAt: '2026-08-28T07:59:58.000Z',
+    failureCode: null,
+  });
+  assert.deepEqual(alipay.acknowledgeWebhook(event), {
+    statusCode: 200,
+    headers: { 'content-type': 'text/plain; charset=utf-8' },
+    body: 'success',
+  });
+});
+
+test('rejects forged, stale, misbound and ambiguous notifications', async () => {
+  const { alipay, platformPrivateKey } = fixture();
+  const valid = notification(platformPrivateKey);
+  const forgedBody = Buffer.from(valid.rawBody);
+  forgedBody[10] ^= 1;
+
+  const rejected = [
+    { ...valid, rawBody: forgedBody },
+    notification(platformPrivateKey, { notify_time: '2026-08-27 10:00:00' }),
+    notification(platformPrivateKey, { app_id: '2024001234567891' }),
+    notification(platformPrivateKey, { seller_id: '2088123456789013' }),
+    notification(platformPrivateKey, { trade_status: 'UNKNOWN_STATUS' }),
+    {
+      ...valid,
+      rawBody: Buffer.concat([valid.rawBody, Buffer.from('&total_amount=12.34')]),
+    },
+  ];
+
+  for (const request of rejected) {
+    await assert.rejects(
+      alipay.verifyWebhook(request),
+      (error) => error instanceof PaymentProviderError && error.kind === 'invalid_webhook',
+    );
+  }
 });

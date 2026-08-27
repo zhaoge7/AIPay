@@ -70,6 +70,8 @@ export type ProviderWebhookEvent =
       eventId: string;
       eventType: 'payment.updated';
       providerPaymentId: string;
+      providerTransactionId: string | null;
+      amount: Readonly<Money>;
       status: ProviderPaymentStatus;
       occurredAt: UtcDateTime;
       failureCode: string | null;

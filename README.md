@@ -138,6 +138,8 @@ PaymentAttempt 首次进入 succeeded、failed 或 unknown 时，Transaction 状
 
 支付宝通知是 form-urlencoded POST。处理方必须先验 RSA2，再绑定 `app_id`、`seller_id`、`out_trade_no`、`total_amount`，只把 `TRADE_SUCCESS`/`TRADE_FINISHED` 视为支付成功；按 `notify_id` 和订单状态幂等，成功后返回纯文本 `success`。回调可能丢失，因此必须同时实现 `alipay.trade.query`。退款重试固定复用 `out_request_no`，`code=10000` 不等于退款成功，需检查 `fund_change=Y` 或主动查询。
 
+回调只接受 RSA2、无重复参数且 `notify_time` 距接收时间不超过 26 小时（未来漂移不超过 5 分钟）。验签后仍须在数据库事务中锁定 `provider + out_trade_no` 对应 PaymentAttempt 并核对精确金额；`provider_webhook_events` 按 `provider + notify_id` 唯一记录 payload digest 和 applied/ignored，状态更新与商户 Outbox 同事务。重复、终态迟到通知返回 `success` 但不重复更新，订单/金额不匹配返回 `failure`。
+
 当前沙箱只验证单一自营测试商户。生产多商户模式必须由实际收款商户完成产品签约，并通过服务商应用授权 `app_auth_token` 代调用；AIPay 不使用一个自有商户号代收第三方资金。支付宝 [AI 按量付费](https://aipay.alipay.com/docs/ai-receive/MACHINE_PAY.html) 与 API/MCP/Skill 最匹配，但它属于 402 `Payment-Needed`/`Payment-Proof` 协议，将在 Payment Proof 与 SDK 阶段接入，不替代本阶段的 Provider 适配器。
 
 ## 环境变量

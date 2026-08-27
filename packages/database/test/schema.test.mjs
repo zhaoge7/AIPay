@@ -27,6 +27,7 @@ const expectedTables = [
   'outbox_events',
   'payment_attempts',
   'payment_provider_calls',
+  'provider_webhook_events',
   'quotes',
   'refunds',
   'services',

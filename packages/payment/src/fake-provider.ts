@@ -32,6 +32,7 @@ interface PaymentRecord {
   status: ProviderPaymentStatus;
   occurredAt: UtcDateTime;
   failureCode: string | null;
+  readonly amount: CreatePaymentRequest['amount'];
 }
 
 interface RefundRecord {
@@ -94,6 +95,12 @@ function parseWebhookEvent(value: unknown): ProviderWebhookEvent {
     !commonValid ||
     (event.eventType !== 'payment.updated' && event.eventType !== 'refund.updated') ||
     typeof event.providerPaymentId !== 'string' ||
+    (event.eventType === 'payment.updated' &&
+      ((event.providerTransactionId !== null && typeof event.providerTransactionId !== 'string') ||
+        typeof event.amount !== 'object' ||
+        event.amount === null ||
+        (event.amount as Record<string, unknown>).currency !== 'CNY' ||
+        typeof (event.amount as Record<string, unknown>).amountMinor !== 'string')) ||
     (event.eventType === 'refund.updated' && typeof event.providerRefundId !== 'string')
   ) {
     throw new PaymentProviderError({
@@ -181,6 +188,7 @@ export class FakePaymentProvider implements PaymentProvider {
       status: outcome === 'timeout' ? 'unknown' : outcome,
       occurredAt: formatUtcDateTime(this.#now()),
       failureCode: outcome === 'failed' ? 'FAKE_PAYMENT_FAILED' : null,
+      amount: Object.freeze({ ...request.amount }),
     };
     this.#paymentsByIdempotency.set(request.idempotencyKey, record);
     this.#paymentsById.set(record.providerPaymentId, record);
@@ -278,6 +286,8 @@ export class FakePaymentProvider implements PaymentProvider {
       eventId: eventId ?? `fake_event_${String(++this.#eventSequence)}`,
       eventType: 'payment.updated',
       providerPaymentId,
+      providerTransactionId: providerPaymentId,
+      amount: record.amount,
       status: record.status,
       occurredAt: record.occurredAt,
       failureCode: record.failureCode,
