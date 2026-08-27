@@ -98,17 +98,27 @@ Agent 请求验签采用 RFC 9421。当前验证端点为 `POST /v1/agent/verify
 
 开发者通过 `POST /v1/mandates` 创建结构化 Mandate 草稿。草稿必须显式提供 Agent、商户/品类白名单、三类 CNY Money、次数、有效期和指令摘要；状态为 draft 且没有 proof，不能用于策略执行。签发在后续独立端点完成，不依赖 LLM。
 
+首次启动签发服务前生成本地 issuer 配置，并将输出加入本地 `.env`（禁止提交）：
+
+```bash
+pnpm --filter @aipay/api generate:issuer
+```
+
+所有者通过 `POST /v1/mandates/:mandateId/issue` 把 draft 原子签发为 active Mandate；`POST /v1/mandates/verify` 使用数据库中的 system 公钥独立验证 JCS Ed25519 proof。issuer 私钥只存在于 `AIPAY_MANDATE_SIGNING_PRIVATE_KEY` 或后续密钥服务，不写数据库。
+
 ## 环境变量
 
 本地开发从 `.env.example` 创建 `.env`。`.env` 已被 Git 忽略，不要在其中提交真实密钥、Token 或用户数据。
 
-| 变量                       | 用途                                               | 当前示例      |
-| -------------------------- | -------------------------------------------------- | ------------- |
-| `NODE_ENV`                 | 运行环境，可选 `development`、`test`、`production` | `development` |
-| `AIPAY_API_HOST`           | API 绑定地址                                       | `127.0.0.1`   |
-| `AIPAY_API_PORT`           | API 监听端口                                       | `3000`        |
-| `AIPAY_WORKER_CONCURRENCY` | Worker 最大并发数，必须为正整数                    | `1`           |
-| `AIPAY_DATABASE_URL`       | PostgreSQL 连接 URL                                | 本地开发 URL  |
+| 变量                                | 用途                                               | 当前示例      |
+| ----------------------------------- | -------------------------------------------------- | ------------- |
+| `NODE_ENV`                          | 运行环境，可选 `development`、`test`、`production` | `development` |
+| `AIPAY_API_HOST`                    | API 绑定地址                                       | `127.0.0.1`   |
+| `AIPAY_API_PORT`                    | API 监听端口                                       | `3000`        |
+| `AIPAY_WORKER_CONCURRENCY`          | Worker 最大并发数，必须为正整数                    | `1`           |
+| `AIPAY_DATABASE_URL`                | PostgreSQL 连接 URL                                | 本地开发 URL  |
+| `AIPAY_MANDATE_SIGNING_KEY_ID`      | Mandate system issuer 的 `key_` UUIDv7             | 本地生成      |
+| `AIPAY_MANDATE_SIGNING_PRIVATE_KEY` | base64 PKCS#8 Ed25519 私钥                         | 本地生成      |
 
 配置无效时，程序只报告变量名，不回显变量值。
 

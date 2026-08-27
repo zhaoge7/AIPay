@@ -39,6 +39,7 @@ export {
 export {
   MANDATE_SIGNATURE_DOMAIN,
   MandateWireSchema,
+  canonicalizeMandateSigningPayload,
   getMandateJsonSchema,
   getMandateSigningPayload,
   parseMandate,

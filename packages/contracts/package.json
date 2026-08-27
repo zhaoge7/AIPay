@@ -11,6 +11,7 @@
     "test": "pnpm run build && node --test test/**/*.test.mjs"
   },
   "dependencies": {
+    "canonicalize": "4.0.0",
     "zod": "4.4.3"
   }
 }

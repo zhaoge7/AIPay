@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
+import { Buffer } from 'node:buffer';
 import test from 'node:test';
 
 import {
   ConfigurationError,
   loadApiConfig,
   loadDatabaseConfig,
+  loadMandateIssuerConfig,
   loadWorkerConfig,
 } from '../dist/index.js';
 
@@ -110,6 +112,37 @@ test('rejects incomplete or non-PostgreSQL database URLs without exposing them',
         assert.equal(error instanceof ConfigurationError, true);
         assert.deepEqual(error.variables, ['AIPAY_DATABASE_URL']);
         assert.equal(error.message.includes(invalidUrl), false);
+        return true;
+      },
+    );
+  }
+});
+
+test('loads and redacts Mandate issuer configuration', () => {
+  const privateKey = Buffer.alloc(48, 7).toString('base64');
+  const config = loadMandateIssuerConfig({
+    AIPAY_MANDATE_SIGNING_KEY_ID: 'key_01890f3e-9b44-7cc2-98c5-7f6a1b2c3d4e',
+    AIPAY_MANDATE_SIGNING_PRIVATE_KEY: privateKey,
+  });
+  assert.deepEqual(config, {
+    keyId: 'key_01890f3e-9b44-7cc2-98c5-7f6a1b2c3d4e',
+    privateKeyPkcs8Base64: privateKey,
+  });
+
+  for (const [name, value] of [
+    ['AIPAY_MANDATE_SIGNING_KEY_ID', 'key_not-valid'],
+    ['AIPAY_MANDATE_SIGNING_PRIVATE_KEY', 'PRIVATE_SECRET_NOT_BASE64'],
+  ]) {
+    const environment = {
+      AIPAY_MANDATE_SIGNING_KEY_ID: 'key_01890f3e-9b44-7cc2-98c5-7f6a1b2c3d4e',
+      AIPAY_MANDATE_SIGNING_PRIVATE_KEY: privateKey,
+      [name]: value,
+    };
+    assert.throws(
+      () => loadMandateIssuerConfig(environment),
+      (error) => {
+        assert.equal(error instanceof ConfigurationError, true);
+        assert.equal(error.message.includes(value), false);
         return true;
       },
     );

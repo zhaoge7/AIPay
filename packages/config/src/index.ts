@@ -19,6 +19,11 @@ export interface DatabaseConfig {
   readonly url: string;
 }
 
+export interface MandateIssuerConfig {
+  readonly keyId: string;
+  readonly privateKeyPkcs8Base64: string;
+}
+
 export class ConfigurationError extends Error {
   readonly variables: readonly string[];
 
@@ -56,6 +61,30 @@ const postgresUrl = makeValidator<string>((input) => {
     parsed.pathname.length <= 1
   ) {
     throw new EnvError('Expected a complete PostgreSQL URL');
+  }
+
+  return input;
+});
+
+const signingKeyId = makeValidator<string>((input) => {
+  if (!/^key_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(input)) {
+    throw new EnvError('Expected a key_ UUIDv7 resource ID');
+  }
+
+  return input;
+});
+
+const privateKeyPkcs8 = makeValidator<string>((input) => {
+  let decoded: Buffer;
+
+  try {
+    decoded = Buffer.from(input, 'base64');
+  } catch {
+    throw new EnvError('Expected canonical base64 PKCS8 data');
+  }
+
+  if (decoded.byteLength < 48 || decoded.toString('base64') !== input) {
+    throw new EnvError('Expected canonical base64 PKCS8 data');
   }
 
   return input;
@@ -127,4 +156,25 @@ export function loadDatabaseConfig(environment: unknown): DatabaseConfig {
   );
 
   return Object.freeze({ url: env.AIPAY_DATABASE_URL });
+}
+
+export function loadMandateIssuerConfig(environment: unknown): MandateIssuerConfig {
+  const env = cleanEnv(
+    environment,
+    {
+      AIPAY_MANDATE_SIGNING_KEY_ID: signingKeyId({
+        desc: 'Mandate issuer key ID',
+        example: 'key_01890f3e-9b44-7cc2-98c5-7f6a1b2c3d4e',
+      }),
+      AIPAY_MANDATE_SIGNING_PRIVATE_KEY: privateKeyPkcs8({
+        desc: 'Base64 PKCS8 Ed25519 private key',
+      }),
+    },
+    { reporter: redactedReporter },
+  );
+
+  return Object.freeze({
+    keyId: env.AIPAY_MANDATE_SIGNING_KEY_ID,
+    privateKeyPkcs8Base64: env.AIPAY_MANDATE_SIGNING_PRIVATE_KEY,
+  });
 }

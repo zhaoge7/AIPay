@@ -11,6 +11,7 @@ import { AuthError, AuthService, type AuthResult } from './auth/service.js';
 import { createTraceId, sendProblem } from './http/problem.js';
 import { registerMerchantRoutes } from './merchants/routes.js';
 import { registerMandateRoutes } from './mandates/routes.js';
+import type { MandateIssuer } from './mandates/issuer.js';
 import { registerCatalogRoutes } from './services/catalog-routes.js';
 import { registerServiceRoutes } from './services/routes.js';
 
@@ -33,6 +34,7 @@ export interface BuildAppOptions {
   readonly database: Database;
   readonly secureCookies?: boolean;
   readonly logger?: boolean;
+  readonly mandateIssuer?: MandateIssuer;
 }
 
 function sendAuthError(reply: FastifyReply, traceId: string, error: AuthError) {
@@ -92,7 +94,7 @@ export async function buildApp(options: BuildAppOptions) {
   registerMerchantRoutes(app, options.database);
   registerServiceRoutes(app, options.database);
   registerCatalogRoutes(app, options.database);
-  registerMandateRoutes(app, options.database);
+  registerMandateRoutes(app, options.database, options.mandateIssuer);
 
   app.setErrorHandler((error, request, reply) => {
     const traceId = createTraceId();

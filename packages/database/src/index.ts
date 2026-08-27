@@ -50,7 +50,7 @@ export interface AgentTable {
 
 export interface SigningKeyTable {
   id: Generated<string>;
-  ownerType: 'developer' | 'agent' | 'merchant';
+  ownerType: 'developer' | 'agent' | 'merchant' | 'system';
   developerId: string | null;
   agentId: string | null;
   merchantId: string | null;

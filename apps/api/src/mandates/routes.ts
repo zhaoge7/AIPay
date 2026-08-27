@@ -1,10 +1,11 @@
-import { createApiProblem, createApiSuccess } from '@aipay/contracts';
+import { createApiProblem, createApiSuccess, parseResourceId } from '@aipay/contracts';
 import type { Database } from '@aipay/database';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
 import { createRequireDeveloper } from '../auth/session.js';
 import { createTraceId, sendProblem } from '../http/problem.js';
 import { MandateDraftError, MandateDraftService, type CreateMandateDraftInput } from './service.js';
+import { MandateIssuer, MandateIssuerError, MandateVerifier } from './issuer.js';
 
 const moneySchema = {
   type: 'object',
@@ -64,6 +65,21 @@ const createBodySchema = {
     instructionHash: { type: 'string', pattern: '^sha256:[0-9a-f]{64}$' },
   },
 } as const;
+const mandateParamsSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['mandateId'],
+  properties: {
+    mandateId: {
+      type: 'string',
+      pattern: '^mdt_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+    },
+  },
+} as const;
+
+interface MandateParams {
+  readonly mandateId: string;
+}
 
 function getDeveloperId(request: FastifyRequest) {
   if (request.authenticatedDeveloperId === null) {
@@ -86,8 +102,33 @@ function sendDraftError(reply: FastifyReply, traceId: string, error: MandateDraf
   );
 }
 
-export function registerMandateRoutes(app: FastifyInstance, database: Database): void {
+function sendIssuerError(reply: FastifyReply, traceId: string, error: MandateIssuerError) {
+  if (error.code === 'not_found') {
+    return sendProblem(reply, createApiProblem('AUTHORIZATION_DENIED', traceId));
+  }
+
+  if (error.code === 'expired') {
+    return sendProblem(reply, createApiProblem('MANDATE_EXPIRED', traceId));
+  }
+
+  if (error.code === 'not_draft') {
+    return sendProblem(reply, createApiProblem('TRANSACTION_STATE_CONFLICT', traceId));
+  }
+
+  if (error.code === 'invalid_signature') {
+    return sendProblem(reply, createApiProblem('SIGNATURE_INVALID', traceId));
+  }
+
+  return sendProblem(reply, createApiProblem('SERVICE_UNAVAILABLE', traceId));
+}
+
+export function registerMandateRoutes(
+  app: FastifyInstance,
+  database: Database,
+  issuer?: MandateIssuer,
+): void {
   const service = new MandateDraftService(database);
+  const verifier = new MandateVerifier(database);
   const requireDeveloper = createRequireDeveloper(database);
 
   app.post<{ Body: CreateMandateDraftInput }>(
@@ -108,4 +149,50 @@ export function registerMandateRoutes(app: FastifyInstance, database: Database):
       }
     },
   );
+
+  app.post<{ Params: MandateParams }>(
+    '/v1/mandates/:mandateId/issue',
+    { schema: { params: mandateParamsSchema }, preHandler: requireDeveloper },
+    async (request, reply) => {
+      const traceId = createTraceId();
+
+      if (issuer === undefined) {
+        return sendProblem(reply, createApiProblem('SERVICE_UNAVAILABLE', traceId));
+      }
+
+      try {
+        const result = await issuer.issue(
+          getDeveloperId(request),
+          parseResourceId(request.params.mandateId, 'mdt'),
+        );
+        return await reply.send(createApiSuccess(result, traceId));
+      } catch (error) {
+        if (error instanceof MandateIssuerError) {
+          return sendIssuerError(reply, traceId, error);
+        }
+
+        throw error;
+      }
+    },
+  );
+
+  app.post<{ Body: unknown }>('/v1/mandates/verify', async (request, reply) => {
+    const traceId = createTraceId();
+
+    try {
+      const mandate = await verifier.verify(request.body);
+      return await reply.send(
+        createApiSuccess(
+          { valid: true, mandateId: mandate.mandateId, keyId: mandate.proof.keyId },
+          traceId,
+        ),
+      );
+    } catch (error) {
+      if (error instanceof MandateIssuerError) {
+        return sendIssuerError(reply, traceId, error);
+      }
+
+      throw error;
+    }
+  });
 }

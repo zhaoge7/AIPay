@@ -1,20 +1,23 @@
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 
-import { loadApiConfig, loadDatabaseConfig } from '@aipay/config';
+import { loadApiConfig, loadDatabaseConfig, loadMandateIssuerConfig } from '@aipay/config';
 import { createDatabase } from '@aipay/database';
 
 import { buildApp } from './app.js';
+import { MandateIssuer } from './mandates/issuer.js';
 
 export const config = loadApiConfig(process.env);
 
 export async function startApi() {
   const databaseConfig = loadDatabaseConfig(process.env);
   const database = createDatabase(databaseConfig.url);
+  const mandateIssuer = new MandateIssuer(database, loadMandateIssuerConfig(process.env));
   const app = await buildApp({
     database,
     secureCookies: config.environment === 'production',
     logger: true,
+    mandateIssuer,
   });
 
   app.addHook('onClose', async () => database.destroy());
@@ -34,4 +37,5 @@ export { AgentSignatureError, AgentSignatureService } from './agent-signatures/s
 export { MerchantError, MerchantService } from './merchants/service.js';
 export { ServiceCatalogService, ServiceError } from './services/service.js';
 export { MandateDraftError, MandateDraftService } from './mandates/service.js';
+export { MandateIssuer, MandateIssuerError, MandateVerifier } from './mandates/issuer.js';
 export { ARGON2ID_OPTIONS, hashPassword, verifyPassword } from './auth/password.js';

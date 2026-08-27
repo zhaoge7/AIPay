@@ -1,4 +1,5 @@
 import * as z from 'zod';
+import canonicalize from 'canonicalize';
 
 import {
   ContractValidationError,
@@ -291,6 +292,16 @@ export function getMandateSigningPayload(mandate: Mandate): Readonly<MandateSign
       keyId: mandate.proof.keyId,
     }),
   });
+}
+
+export function canonicalizeMandateSigningPayload(payload: MandateSigningPayload): string {
+  const canonical = canonicalize(payload);
+
+  if (canonical === undefined) {
+    throw new Error('Mandate signing payload cannot be canonicalized');
+  }
+
+  return canonical;
 }
 
 export function toMandateWire(mandate: Mandate): Readonly<MandateWire> {
