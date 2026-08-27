@@ -44,4 +44,5 @@ export { BudgetReservationError, BudgetReservationService } from './mandates/res
 export { ManualApprovalError, ManualApprovalService } from './transactions/manual-approval.js';
 export { QuoteDraftError, QuoteDraftService } from './quotes/drafts.js';
 export { QuoteSigningError, QuoteSigningService } from './quotes/signing.js';
+export { TransactionCreationError, TransactionCreationService } from './transactions/create.js';
 export { ARGON2ID_OPTIONS, hashPassword, verifyPassword } from './auth/password.js';

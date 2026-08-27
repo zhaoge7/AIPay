@@ -18,6 +18,7 @@ import { registerServiceRoutes } from './services/routes.js';
 import { registerQuoteRoutes } from './quotes/routes.js';
 import { registerQuoteSigningRoutes } from './quotes/signing-routes.js';
 import { registerManualApprovalRoutes } from './transactions/manual-approval-routes.js';
+import { registerTransactionCreationRoutes } from './transactions/create-routes.js';
 
 const authBodySchema = {
   type: 'object',
@@ -103,6 +104,7 @@ export async function buildApp(options: BuildAppOptions) {
   registerManualApprovalRoutes(app, options.database);
   registerQuoteRoutes(app, options.database);
   registerQuoteSigningRoutes(app, options.database);
+  registerTransactionCreationRoutes(app, options.database);
 
   app.setErrorHandler((error, request, reply) => {
     const traceId = createTraceId();
