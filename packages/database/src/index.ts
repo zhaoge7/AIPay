@@ -117,6 +117,20 @@ export interface MandateTable {
   revokedAt: Date | null;
   spentAmountMinor: Generated<string>;
   completedTransactionCount: Generated<number>;
+  reservedAmountMinor: Generated<string>;
+  reservedTransactionCount: Generated<number>;
+}
+
+export interface BudgetReservationTable {
+  id: Generated<string>;
+  mandateId: string;
+  agentId: string;
+  currency: Generated<'CNY'>;
+  amountMinor: string;
+  status: Generated<'held' | 'released' | 'confirmed' | 'expired'>;
+  createdAt: Generated<Date>;
+  expiresAt: Date;
+  finalizedAt: Date | null;
 }
 
 export interface MandateAllowedMerchantTable {
@@ -141,6 +155,7 @@ export interface AIPayDatabase {
   mandates: MandateTable;
   mandateAllowedMerchants: MandateAllowedMerchantTable;
   mandateAllowedCategories: MandateAllowedCategoryTable;
+  budgetReservations: BudgetReservationTable;
 }
 
 export interface CreateDatabaseOptions {

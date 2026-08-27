@@ -16,6 +16,7 @@ const expectedTables = [
   'api_keys',
   'audit_events',
   'auth_sessions',
+  'budget_reservations',
   'deliveries',
   'developers',
   'mandate_allowed_categories',

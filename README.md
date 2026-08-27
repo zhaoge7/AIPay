@@ -110,6 +110,8 @@ pnpm --filter @aipay/api generate:issuer
 
 最终消费计数通过 `MandateUsageService` 在 Mandate 行锁内更新 `spent_amount_minor` 和 `completed_transaction_count`，固定检查单笔、次数、累计预算；支付前在途额度不得调用该接口冒充完成，必须使用后续 reservation 流程。
 
+`BudgetReservationService` 在支付前创建 `rsv_` held 预占，Mandate 同步维护 reserved 金额/次数；数据库强制 `spent + reserved` 和 `completed + reservedCount` 不超过授权上限。同一 Mandate 并发预占通过行锁串行。
+
 ## 环境变量
 
 本地开发从 `.env.example` 创建 `.env`。`.env` 已被 Git 忽略，不要在其中提交真实密钥、Token 或用户数据。

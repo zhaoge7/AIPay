@@ -1,27 +1,45 @@
-import { createMoney, getResourceUuid, type ResourceId } from '@aipay/contracts';
+import {
+  createMoney,
+  formatUtcDateTime,
+  getResourceUuid,
+  parseResourceId,
+  type ResourceId,
+} from '@aipay/contracts';
 import type { Database } from '@aipay/database';
 import { evaluateAmountCountPolicy, type AmountCountDenialReason } from '@aipay/policy';
 
-export type MandateUsageErrorCode =
-  AmountCountDenialReason | 'not_found' | 'inactive' | 'expired' | 'agent_unavailable';
+const defaultTtlMs = 5 * 60 * 1_000;
+const maximumTtlMs = 15 * 60 * 1_000;
 
-export class MandateUsageError extends Error {
-  readonly code: MandateUsageErrorCode;
+export type BudgetReservationErrorCode =
+  | AmountCountDenialReason
+  | 'not_found'
+  | 'inactive'
+  | 'expired'
+  | 'agent_unavailable'
+  | 'invalid_ttl';
 
-  constructor(code: MandateUsageErrorCode) {
-    super('Mandate usage operation failed');
-    this.name = 'MandateUsageError';
+export class BudgetReservationError extends Error {
+  readonly code: BudgetReservationErrorCode;
+
+  constructor(code: BudgetReservationErrorCode) {
+    super('Budget reservation failed');
+    this.name = 'BudgetReservationError';
     this.code = code;
   }
 }
 
-export interface MandateUsageView {
+export interface BudgetReservationView {
+  readonly reservationId: ResourceId<'rsv'>;
   readonly mandateId: ResourceId<'mdt'>;
-  readonly spentAmountMinor: string;
-  readonly completedTransactionCount: number;
+  readonly agentId: ResourceId<'agt'>;
+  readonly amount: Readonly<{ currency: 'CNY'; amountMinor: string }>;
+  readonly status: 'held';
+  readonly createdAt: string;
+  readonly expiresAt: string;
 }
 
-export class MandateUsageService {
+export class BudgetReservationService {
   readonly #database: Database;
   readonly #now: () => Date;
 
@@ -30,20 +48,26 @@ export class MandateUsageService {
     this.#now = now;
   }
 
-  async recordCompletedSpend(
+  async reserve(
     mandateId: ResourceId<'mdt'>,
     agentId: ResourceId<'agt'>,
     amountMinor: string,
-  ): Promise<Readonly<MandateUsageView>> {
-    const now = this.#now();
+    ttlMs: number = defaultTtlMs,
+  ): Promise<Readonly<BudgetReservationView>> {
     let amount;
 
     try {
       amount = createMoney('CNY', amountMinor);
     } catch {
-      throw new MandateUsageError('non_positive_amount');
+      throw new BudgetReservationError('non_positive_amount');
     }
 
+    if (!Number.isInteger(ttlMs) || ttlMs < 1_000 || ttlMs > maximumTtlMs) {
+      throw new BudgetReservationError('invalid_ttl');
+    }
+
+    const now = this.#now();
+    const expiresAt = new Date(now.getTime() + ttlMs);
     const outcome = await this.#database.transaction().execute(async (transaction) => {
       const row = await transaction
         .selectFrom('mandates')
@@ -114,23 +138,43 @@ export class MandateUsageService {
         return Object.freeze({ error: decision.reason });
       }
 
-      const updated = await transaction
+      const reservation = await transaction
+        .insertInto('budgetReservations')
+        .values({
+          mandateId: row.id,
+          agentId: row.agentId,
+          amountMinor: amount.amountMinor,
+          expiresAt,
+          finalizedAt: null,
+        })
+        .returning(['id', 'createdAt'])
+        .executeTakeFirstOrThrow();
+      await transaction
         .updateTable('mandates')
         .set({
-          spentAmountMinor: (BigInt(row.spentAmountMinor) + BigInt(amount.amountMinor)).toString(),
-          completedTransactionCount: row.completedTransactionCount + 1,
+          reservedAmountMinor: (
+            BigInt(row.reservedAmountMinor) + BigInt(amount.amountMinor)
+          ).toString(),
+          reservedTransactionCount: row.reservedTransactionCount + 1,
         })
         .where('id', '=', row.id)
-        .returning(['spentAmountMinor', 'completedTransactionCount'])
         .executeTakeFirstOrThrow();
 
-      return Object.freeze({ usage: updated });
+      return Object.freeze({ reservation });
     });
 
     if ('error' in outcome) {
-      throw new MandateUsageError(outcome.error);
+      throw new BudgetReservationError(outcome.error);
     }
 
-    return Object.freeze({ mandateId, ...outcome.usage });
+    return Object.freeze({
+      reservationId: parseResourceId(`rsv_${outcome.reservation.id}`, 'rsv'),
+      mandateId,
+      agentId,
+      amount,
+      status: 'held',
+      createdAt: formatUtcDateTime(outcome.reservation.createdAt),
+      expiresAt: formatUtcDateTime(expiresAt),
+    });
   }
 }

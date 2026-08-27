@@ -13,6 +13,7 @@ export const resourcePrefixes = [
   'pat',
   'dlv',
   'rfd',
+  'rsv',
   'evt',
   'obx',
 ] as const;
