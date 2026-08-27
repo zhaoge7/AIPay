@@ -112,6 +112,8 @@ pnpm --filter @aipay/api generate:issuer
 
 `BudgetReservationService` 在支付前创建 `rsv_` held 预占，Mandate 同步维护 reserved 金额/次数；数据库强制 `spent + reserved` 和 `completed + reservedCount` 不超过授权上限。同一 Mandate 并发预占通过行锁串行。
 
+Reservation 终结固定为 released（payment_failed/cancelled）、expired（timeout）或 confirmed（payment_succeeded）。失败/超时归还 reserved，成功原子转入 spent/count；重复同一终态幂等，终态之间不可转换。`expireDue` 复用同一终结事务回收到期 held 记录。
+
 ## 环境变量
 
 本地开发从 `.env.example` 创建 `.env`。`.env` 已被 Git 忽略，不要在其中提交真实密钥、Token 或用户数据。

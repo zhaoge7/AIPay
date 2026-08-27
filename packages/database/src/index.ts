@@ -131,6 +131,7 @@ export interface BudgetReservationTable {
   createdAt: Generated<Date>;
   expiresAt: Date;
   finalizedAt: Date | null;
+  finalizationReason: string | null;
 }
 
 export interface MandateAllowedMerchantTable {
