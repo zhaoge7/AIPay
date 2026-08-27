@@ -94,6 +94,37 @@ export interface ServiceTable {
   updatedAt: Generated<Date>;
 }
 
+export interface MandateTable {
+  id: Generated<string>;
+  schemaVersion: Generated<'1'>;
+  principalId: string;
+  agentId: string;
+  purpose: string;
+  currency: Generated<'CNY'>;
+  maxPerTransactionAmountMinor: string;
+  totalBudgetAmountMinor: string;
+  approvalRequiredAboveAmountMinor: string;
+  maxTransactions: number;
+  issuedAt: Date;
+  validUntil: Date;
+  instructionHash: Uint8Array;
+  proofScheme: Generated<'aipay-jcs-ed25519-v1'>;
+  proofKeyId: string | null;
+  proofValue: Uint8Array | null;
+  status: Generated<'draft' | 'active' | 'paused' | 'revoked' | 'expired'>;
+  createdAt: Generated<Date>;
+}
+
+export interface MandateAllowedMerchantTable {
+  mandateId: string;
+  merchantId: string;
+}
+
+export interface MandateAllowedCategoryTable {
+  mandateId: string;
+  category: string;
+}
+
 export interface AIPayDatabase {
   developers: DeveloperTable;
   authSessions: AuthSessionTable;
@@ -103,6 +134,9 @@ export interface AIPayDatabase {
   agentRequestNonces: AgentRequestNonceTable;
   merchants: MerchantTable;
   services: ServiceTable;
+  mandates: MandateTable;
+  mandateAllowedMerchants: MandateAllowedMerchantTable;
+  mandateAllowedCategories: MandateAllowedCategoryTable;
 }
 
 export interface CreateDatabaseOptions {

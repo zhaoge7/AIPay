@@ -96,6 +96,8 @@ Agent 请求验签采用 RFC 9421。当前验证端点为 `POST /v1/agent/verify
 
 签名 Agent 通过 `GET /v1/catalog/services` 查询 active 商户下的 enabled 服务。可按 `type`、`category`、`merchantId` 过滤，并使用 `limit`（1-100 的十进制字符串）和 `svc_` `cursor` 分页。GET 空正文仍须按 Agent Profile 签署空字节 Content-Digest。
 
+开发者通过 `POST /v1/mandates` 创建结构化 Mandate 草稿。草稿必须显式提供 Agent、商户/品类白名单、三类 CNY Money、次数、有效期和指令摘要；状态为 draft 且没有 proof，不能用于策略执行。签发在后续独立端点完成，不依赖 LLM。
+
 ## 环境变量
 
 本地开发从 `.env.example` 创建 `.env`。`.env` 已被 Git 忽略，不要在其中提交真实密钥、Token 或用户数据。

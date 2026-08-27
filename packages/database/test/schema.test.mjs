@@ -117,10 +117,10 @@ test('creates the complete core schema and enforces Contract bindings', async (c
       (principal_id, agent_id, purpose, max_per_transaction_amount_minor,
        total_budget_amount_minor, approval_required_above_amount_minor,
        max_transactions, issued_at, valid_until, instruction_hash,
-       proof_key_id, proof_value)
+       proof_key_id, proof_value, status)
       VALUES ($1, $2, 'Buy weather data', 1000, 10000, 500, 100,
         '2026-08-27T00:00:00.000Z', '2026-08-28T00:00:00.000Z',
-        decode(repeat('02', 32), 'hex'), $3, decode(repeat('03', 64), 'hex'))
+        decode(repeat('02', 32), 'hex'), $3, decode(repeat('03', 64), 'hex'), 'active')
       RETURNING id`,
     [developerId, agentId, signingKeyId],
   );

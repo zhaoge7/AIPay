@@ -10,6 +10,7 @@ import { registerApiKeyRoutes } from './api-keys/routes.js';
 import { AuthError, AuthService, type AuthResult } from './auth/service.js';
 import { createTraceId, sendProblem } from './http/problem.js';
 import { registerMerchantRoutes } from './merchants/routes.js';
+import { registerMandateRoutes } from './mandates/routes.js';
 import { registerCatalogRoutes } from './services/catalog-routes.js';
 import { registerServiceRoutes } from './services/routes.js';
 
@@ -91,6 +92,7 @@ export async function buildApp(options: BuildAppOptions) {
   registerMerchantRoutes(app, options.database);
   registerServiceRoutes(app, options.database);
   registerCatalogRoutes(app, options.database);
+  registerMandateRoutes(app, options.database);
 
   app.setErrorHandler((error, request, reply) => {
     const traceId = createTraceId();

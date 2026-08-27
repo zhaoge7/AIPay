@@ -33,4 +33,5 @@ export { AgentError, AgentService } from './agents/service.js';
 export { AgentSignatureError, AgentSignatureService } from './agent-signatures/service.js';
 export { MerchantError, MerchantService } from './merchants/service.js';
 export { ServiceCatalogService, ServiceError } from './services/service.js';
+export { MandateDraftError, MandateDraftService } from './mandates/service.js';
 export { ARGON2ID_OPTIONS, hashPassword, verifyPassword } from './auth/password.js';
