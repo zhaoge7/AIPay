@@ -130,3 +130,9 @@ export function isTerminalPaymentStatus(status: ProviderPaymentStatus): boolean 
 export function isTerminalRefundStatus(status: ProviderRefundStatus): boolean {
   return status === 'succeeded' || status === 'failed';
 }
+
+export {
+  FakePaymentProvider,
+  type FakeOutcome,
+  type FakeProviderOptions,
+} from './fake-provider.js';
