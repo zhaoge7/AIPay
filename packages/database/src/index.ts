@@ -79,6 +79,21 @@ export interface MerchantTable {
   updatedAt: Generated<Date>;
 }
 
+export interface ServiceTable {
+  id: Generated<string>;
+  merchantId: string;
+  serviceType: 'api' | 'mcp' | 'skill';
+  name: string;
+  category: string;
+  unit: string;
+  unitPriceAmountMinor: string;
+  currency: Generated<'CNY'>;
+  refundPolicy: Generated<'full_on_delivery_failure' | 'non_refundable'>;
+  status: Generated<'enabled' | 'disabled'>;
+  createdAt: Generated<Date>;
+  updatedAt: Generated<Date>;
+}
+
 export interface AIPayDatabase {
   developers: DeveloperTable;
   authSessions: AuthSessionTable;
@@ -87,6 +102,7 @@ export interface AIPayDatabase {
   signingKeys: SigningKeyTable;
   agentRequestNonces: AgentRequestNonceTable;
   merchants: MerchantTable;
+  services: ServiceTable;
 }
 
 export interface CreateDatabaseOptions {

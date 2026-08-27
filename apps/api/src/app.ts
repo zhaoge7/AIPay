@@ -10,6 +10,7 @@ import { registerApiKeyRoutes } from './api-keys/routes.js';
 import { AuthError, AuthService, type AuthResult } from './auth/service.js';
 import { createTraceId, sendProblem } from './http/problem.js';
 import { registerMerchantRoutes } from './merchants/routes.js';
+import { registerServiceRoutes } from './services/routes.js';
 
 const authBodySchema = {
   type: 'object',
@@ -73,7 +74,7 @@ function isValidationError(error: unknown): error is FastifyError {
 export async function buildApp(options: BuildAppOptions) {
   const app = Fastify({
     logger: options.logger ?? false,
-    ajv: { customOptions: { removeAdditional: false } },
+    ajv: { customOptions: { removeAdditional: false, coerceTypes: false } },
   });
   const authService = new AuthService(options.database);
   const secureCookies = options.secureCookies ?? false;
@@ -87,6 +88,7 @@ export async function buildApp(options: BuildAppOptions) {
   registerAgentRoutes(app, options.database);
   registerAgentSignatureRoutes(app, options.database);
   registerMerchantRoutes(app, options.database);
+  registerServiceRoutes(app, options.database);
 
   app.setErrorHandler((error, request, reply) => {
     const traceId = createTraceId();

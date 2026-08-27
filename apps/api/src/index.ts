@@ -32,4 +32,5 @@ export { ApiKeyError, ApiKeyService } from './api-keys/service.js';
 export { AgentError, AgentService } from './agents/service.js';
 export { AgentSignatureError, AgentSignatureService } from './agent-signatures/service.js';
 export { MerchantError, MerchantService } from './merchants/service.js';
+export { ServiceCatalogService, ServiceError } from './services/service.js';
 export { ARGON2ID_OPTIONS, hashPassword, verifyPassword } from './auth/password.js';

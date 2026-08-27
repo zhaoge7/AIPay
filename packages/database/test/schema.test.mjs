@@ -106,8 +106,8 @@ test('creates the complete core schema and enforces Contract bindings', async (c
   const signingKeyId = signingKey.rows[0].id;
   const service = await client.query(
     `INSERT INTO aipay.services
-      (merchant_id, name, category, unit, unit_price_amount_minor)
-      VALUES ($1, 'Weather API', 'data.weather', 'request', 200)
+      (merchant_id, service_type, name, category, unit, unit_price_amount_minor)
+      VALUES ($1, 'api', 'Weather API', 'data.weather', 'request', 200)
       RETURNING id`,
     [merchantId],
   );

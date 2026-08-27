@@ -92,6 +92,8 @@ Agent 请求验签采用 RFC 9421。当前验证端点为 `POST /v1/agent/verify
 
 商户资料端点为 `POST /v1/merchants`、`GET /v1/merchants` 和 `PATCH /v1/merchants/:merchantId`。回调地址必须使用 HTTPS；只有 localhost 和回环 IP 可使用 HTTP。保存回调地址不代表已通过后续 Webhook 出站安全检查。
 
+商户服务端点为 `POST/GET /v1/merchants/:merchantId/services` 和 `PATCH /v1/merchants/:merchantId/services/:serviceId`。服务类型支持 `api`、`mcp`、`skill`；V1 只接受固定 CNY 最小单位字符串价格，以及 `full_on_delivery_failure` 或 `non_refundable` 退款规则。HTTP JSON 校验不执行类型强制转换。
+
 ## 环境变量
 
 本地开发从 `.env.example` 创建 `.env`。`.env` 已被 Git 忽略，不要在其中提交真实密钥、Token 或用户数据。
