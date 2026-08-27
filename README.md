@@ -106,6 +106,8 @@ pnpm --filter @aipay/api generate:issuer
 
 所有者通过 `POST /v1/mandates/:mandateId/issue` 把 draft 原子签发为 active Mandate；`POST /v1/mandates/verify` 使用数据库中的 system 公钥独立验证 JCS Ed25519 proof。issuer 私钥只存在于 `AIPAY_MANDATE_SIGNING_PRIVATE_KEY` 或后续密钥服务，不写数据库。
 
+`GET/POST /v1/mandates/:mandateId/lifecycle` 用于查询及执行 pause、resume、revoke。交易入口必须额外调用 lifecycle guard；proof 验真不等于授权仍有效。guard 在 `now >= validUntil` 时先原子落库 expired，再拒绝使用。
+
 ## 环境变量
 
 本地开发从 `.env.example` 创建 `.env`。`.env` 已被 Git 忽略，不要在其中提交真实密钥、Token 或用户数据。

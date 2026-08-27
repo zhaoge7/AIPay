@@ -12,6 +12,7 @@ import { createTraceId, sendProblem } from './http/problem.js';
 import { registerMerchantRoutes } from './merchants/routes.js';
 import { registerMandateRoutes } from './mandates/routes.js';
 import type { MandateIssuer } from './mandates/issuer.js';
+import { registerMandateLifecycleRoutes } from './mandates/lifecycle-routes.js';
 import { registerCatalogRoutes } from './services/catalog-routes.js';
 import { registerServiceRoutes } from './services/routes.js';
 
@@ -95,6 +96,7 @@ export async function buildApp(options: BuildAppOptions) {
   registerServiceRoutes(app, options.database);
   registerCatalogRoutes(app, options.database);
   registerMandateRoutes(app, options.database, options.mandateIssuer);
+  registerMandateLifecycleRoutes(app, options.database);
 
   app.setErrorHandler((error, request, reply) => {
     const traceId = createTraceId();

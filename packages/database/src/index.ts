@@ -113,6 +113,8 @@ export interface MandateTable {
   proofValue: Uint8Array | null;
   status: Generated<'draft' | 'active' | 'paused' | 'revoked' | 'expired'>;
   createdAt: Generated<Date>;
+  statusChangedAt: Generated<Date>;
+  revokedAt: Date | null;
 }
 
 export interface MandateAllowedMerchantTable {
