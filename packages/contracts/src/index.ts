@@ -54,6 +54,7 @@ export {
 export {
   QUOTE_SIGNATURE_DOMAIN,
   QuoteWireSchema,
+  canonicalizeQuoteSigningPayload,
   getQuoteJsonSchema,
   getQuoteSigningPayload,
   parseQuote,

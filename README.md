@@ -118,6 +118,8 @@ Reservation 终结固定为 released（payment_failed/cancelled）、expired（t
 
 商户通过 `POST /v1/merchants/:merchantId/quotes` 创建 unsigned Quote draft，只提交 service、quantity、税费行为/税额和 30-900 秒有效期。unit/固定单价来自服务目录，subtotal/total 由服务端 bigint 计算；客户端不能提交派生价格字段。
 
+商户客户端通过 `POST /v1/merchants/:merchantId/signing-key` 只登记 Ed25519 公钥，再对 `AIPAY-QUOTE-V1\\0 || JCS(signingPayload)` 签名并调用 `POST /v1/quotes/:quoteId/activate`。`POST /v1/quotes/verify` 可独立验签；私钥不得发送给 AIPay。
+
 ## 环境变量
 
 本地开发从 `.env.example` 创建 `.env`。`.env` 已被 Git 忽略，不要在其中提交真实密钥、Token 或用户数据。

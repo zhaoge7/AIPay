@@ -1,4 +1,5 @@
 import * as z from 'zod';
+import canonicalize from 'canonicalize';
 
 import {
   ContractValidationError,
@@ -243,6 +244,16 @@ export function getQuoteSigningPayload(quote: Quote): Readonly<QuoteSigningPaylo
       keyId: quote.proof.keyId,
     }),
   });
+}
+
+export function canonicalizeQuoteSigningPayload(payload: QuoteSigningPayload): string {
+  const canonical = canonicalize(payload);
+
+  if (canonical === undefined) {
+    throw new Error('Quote signing payload cannot be canonicalized');
+  }
+
+  return canonical;
 }
 
 export function toQuoteWire(quote: Quote): Readonly<QuoteWire> {
