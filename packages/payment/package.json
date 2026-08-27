@@ -2,5 +2,15 @@
   "name": "@aipay/payment",
   "version": "0.0.0",
   "private": true,
-  "description": "AIPay payment provider abstractions"
+  "description": "AIPay payment provider abstractions",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc --build",
+    "test": "pnpm run build && node --test test/**/*.test.mjs"
+  },
+  "dependencies": {
+    "@aipay/contracts": "workspace:*"
+  }
 }

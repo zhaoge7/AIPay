@@ -105,7 +105,11 @@ importers:
         specifier: 8.23.1
         version: 8.23.1
 
-  packages/payment: {}
+  packages/payment:
+    dependencies:
+      '@aipay/contracts':
+        specifier: workspace:*
+        version: link:../contracts
 
   packages/policy:
     dependencies:
