@@ -1,0 +1,260 @@
+import assert from 'node:assert/strict';
+import { Buffer } from 'node:buffer';
+import process from 'node:process';
+import test from 'node:test';
+
+import { parseResourceId } from '@aipay/contracts';
+import { createDatabase } from '@aipay/database';
+import { FakePaymentProvider } from '@aipay/payment';
+
+import { PaymentExecutionError, PaymentExecutionService } from '../dist/payments/execution.js';
+import { runMigrations } from '../../../packages/database/scripts/migration-runner.mjs';
+import {
+  removePostgresContainer,
+  startPostgresContainer,
+} from '../../../packages/database/scripts/postgres-container.mjs';
+
+const discardLog = () => undefined;
+
+test('records every Provider create/retry/query call and its result', async (context) => {
+  const container = {
+    name: `aipay-payment-execution-test-${process.pid}`,
+    database: 'aipay_payment_execution_test',
+    user: 'aipay',
+    password: 'payment-execution-only',
+  };
+  let database;
+  context.after(async () => {
+    await database?.destroy();
+    removePostgresContainer(container.name);
+  });
+
+  const { databaseUrl } = await startPostgresContainer(container);
+  await runMigrations(databaseUrl, discardLog);
+  database = createDatabase(databaseUrl, { maxConnections: 6 });
+  const developer = await database
+    .insertInto('developers')
+    .values({
+      email: 'payment-execution@example.com',
+      passwordHash: '$argon2id$v=19$m=19456,t=2,p=1$c2FsdA$YWJj',
+    })
+    .returning('id')
+    .executeTakeFirstOrThrow();
+  const agent = await database
+    .insertInto('agents')
+    .values({ developerId: developer.id, name: 'Payment Execution Agent' })
+    .returning('id')
+    .executeTakeFirstOrThrow();
+  const merchant = await database
+    .insertInto('merchants')
+    .values({
+      developerId: developer.id,
+      name: 'Payment Execution Merchant',
+      callbackUrl: 'https://payment-execution.example.com/webhook',
+    })
+    .returning('id')
+    .executeTakeFirstOrThrow();
+  const systemKey = await database
+    .insertInto('signingKeys')
+    .values({
+      ownerType: 'system',
+      developerId: null,
+      agentId: null,
+      merchantId: null,
+      publicKey: Buffer.alloc(32, 50),
+      revokedAt: null,
+    })
+    .returning('id')
+    .executeTakeFirstOrThrow();
+  const merchantKey = await database
+    .insertInto('signingKeys')
+    .values({
+      ownerType: 'merchant',
+      developerId: null,
+      agentId: null,
+      merchantId: merchant.id,
+      publicKey: Buffer.alloc(32, 51),
+      revokedAt: null,
+    })
+    .returning('id')
+    .executeTakeFirstOrThrow();
+  const catalogService = await database
+    .insertInto('services')
+    .values({
+      merchantId: merchant.id,
+      serviceType: 'api',
+      name: 'Payment Execution Service',
+      category: 'data.payment',
+      unit: 'request',
+      unitPriceAmountMinor: '200',
+      refundPolicy: 'full_on_delivery_failure',
+    })
+    .returning('id')
+    .executeTakeFirstOrThrow();
+  const mandate = await database
+    .insertInto('mandates')
+    .values({
+      principalId: developer.id,
+      agentId: agent.id,
+      purpose: 'Payment execution tracking',
+      maxPerTransactionAmountMinor: '1000',
+      totalBudgetAmountMinor: '5000',
+      approvalRequiredAboveAmountMinor: '1000',
+      maxTransactions: 10,
+      issuedAt: new Date(Date.now() - 1_000),
+      validUntil: new Date(Date.now() + 60_000),
+      instructionHash: Buffer.alloc(32, 52),
+      proofKeyId: systemKey.id,
+      proofValue: Buffer.alloc(64, 53),
+      status: 'active',
+      revokedAt: null,
+    })
+    .returning('id')
+    .executeTakeFirstOrThrow();
+
+  async function transaction(label) {
+    const quote = await database
+      .insertInto('quotes')
+      .values({
+        merchantId: merchant.id,
+        serviceId: catalogService.id,
+        unit: 'request',
+        quantity: 1,
+        unitPriceAmountMinor: '200',
+        subtotalAmountMinor: '200',
+        taxBehavior: 'inclusive',
+        taxAmountMinor: '0',
+        totalAmountMinor: '200',
+        issuedAt: new Date(Date.now() - 1_000),
+        expiresAt: new Date(Date.now() + 60_000),
+        proofKeyId: merchantKey.id,
+        proofValue: Buffer.alloc(64, label),
+        status: 'active',
+      })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+    const row = await database
+      .insertInto('transactions')
+      .values({
+        quoteId: quote.id,
+        mandateId: mandate.id,
+        principalId: developer.id,
+        agentId: agent.id,
+        merchantId: merchant.id,
+        serviceId: catalogService.id,
+        amountMinor: '200',
+        status: 'authorized',
+      })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+    return parseResourceId(`txn_${row.id}`, 'txn');
+  }
+
+  const provider = new FakePaymentProvider({ webhookSecret: 'payment-execution-fake-secret' });
+  const execution = new PaymentExecutionService(
+    database,
+    'https://aipay.example.com/webhooks/fake',
+  );
+
+  const successfulTransaction = await transaction(54);
+  provider.enqueuePaymentOutcome('succeeded');
+  const successful = await execution.create(successfulTransaction, provider);
+  assert.equal(successful.status, 'succeeded');
+  assert.match(successful.providerReference, /^fake_pay_/u);
+
+  const failedTransaction = await transaction(55);
+  provider.enqueuePaymentOutcome('failed');
+  const failed = await execution.create(failedTransaction, provider);
+  assert.equal(failed.status, 'failed');
+  assert.equal(failed.errorCode, 'FAKE_PAYMENT_FAILED');
+
+  const timeoutTransaction = await transaction(56);
+  provider.enqueuePaymentOutcome('timeout');
+  let timeoutAttemptId;
+  await assert.rejects(
+    execution.create(timeoutTransaction, provider),
+    (error) => error instanceof PaymentExecutionError && error.providerCode === 'TIMEOUT',
+  );
+  const timeoutAttempt = await database
+    .selectFrom('paymentAttempts')
+    .select(['id', 'status', 'errorCode', 'providerReference'])
+    .where('transactionId', '=', timeoutTransaction.slice(4))
+    .executeTakeFirstOrThrow();
+  timeoutAttemptId = parseResourceId(`pat_${timeoutAttempt.id}`, 'pat');
+  assert.deepEqual(
+    {
+      status: timeoutAttempt.status,
+      errorCode: timeoutAttempt.errorCode,
+      providerReference: timeoutAttempt.providerReference,
+    },
+    { status: 'unknown', errorCode: 'TIMEOUT', providerReference: null },
+  );
+
+  const retryCreate = await execution.retryCreate(timeoutAttemptId, provider);
+  assert.equal(retryCreate.status, 'unknown');
+  assert.match(retryCreate.providerReference, /^fake_pay_/u);
+  provider.setPaymentStatus(retryCreate.providerReference, 'succeeded');
+  const recovered = await execution.query(timeoutAttemptId, provider);
+  assert.equal(recovered.status, 'succeeded');
+  assert.equal(recovered.providerReference, retryCreate.providerReference);
+
+  const attempts = await database
+    .selectFrom('paymentAttempts')
+    .select(['transactionId', 'status', 'providerReference'])
+    .orderBy('createdAt', 'asc')
+    .execute();
+  assert.equal(attempts.length, 3);
+  assert.deepEqual(
+    attempts.map(({ status }) => status),
+    ['succeeded', 'failed', 'succeeded'],
+  );
+
+  const calls = await database
+    .selectFrom('paymentProviderCalls')
+    .select([
+      'paymentAttemptId',
+      'operation',
+      'requestDigest',
+      'outcome',
+      'providerStatus',
+      'providerReference',
+      'errorKind',
+      'errorCode',
+      'completedAt',
+      'durationMs',
+    ])
+    .orderBy('startedAt', 'asc')
+    .execute();
+  assert.equal(calls.length, 5);
+  assert.deepEqual(
+    calls.map(({ operation }) => operation),
+    ['payment.create', 'payment.create', 'payment.create', 'payment.create', 'payment.query'],
+  );
+  assert.equal(
+    calls.every(({ requestDigest }) => requestDigest.byteLength === 32),
+    true,
+  );
+  assert.equal(
+    calls.every(({ completedAt }) => completedAt !== null),
+    true,
+  );
+  assert.equal(
+    calls.every(({ durationMs }) => durationMs !== null && durationMs >= 0),
+    true,
+  );
+  const timeoutCall = calls.find(({ errorCode }) => errorCode === 'TIMEOUT');
+  assert.equal(timeoutCall?.outcome, 'failed');
+  assert.equal(timeoutCall?.providerStatus, 'unknown');
+  assert.equal(timeoutCall?.errorKind, 'retryable');
+  assert.equal(calls.filter(({ providerReference }) => providerReference !== null).length, 4);
+
+  const transactionStates = await database
+    .selectFrom('transactions')
+    .select(['id', 'status'])
+    .orderBy('createdAt', 'asc')
+    .execute();
+  assert.deepEqual(
+    transactionStates.map(({ status }) => status),
+    ['paid', 'failed', 'paid'],
+  );
+});

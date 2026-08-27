@@ -11,6 +11,7 @@ export const resourcePrefixes = [
   'qte',
   'txn',
   'pat',
+  'pcl',
   'dlv',
   'rfd',
   'rsv',

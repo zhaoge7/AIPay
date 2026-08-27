@@ -26,6 +26,7 @@ const expectedTables = [
   'merchants',
   'outbox_events',
   'payment_attempts',
+  'payment_provider_calls',
   'quotes',
   'refunds',
   'services',

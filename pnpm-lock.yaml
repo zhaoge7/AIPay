@@ -41,6 +41,9 @@ importers:
       '@aipay/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@aipay/payment':
+        specifier: workspace:*
+        version: link:../../packages/payment
       '@aipay/policy':
         specifier: workspace:*
         version: link:../../packages/policy

@@ -211,6 +211,21 @@ export interface IdempotencyRecordTable {
   expiresAt: Date;
 }
 
+export interface PaymentProviderCallTable {
+  id: Generated<string>;
+  paymentAttemptId: string;
+  operation: 'payment.create' | 'payment.query';
+  requestDigest: Uint8Array;
+  outcome: Generated<'started' | 'succeeded' | 'failed'>;
+  providerStatus: 'pending' | 'succeeded' | 'failed' | 'unknown' | null;
+  providerReference: string | null;
+  errorKind: string | null;
+  errorCode: string | null;
+  startedAt: Generated<Date>;
+  completedAt: Date | null;
+  durationMs: number | null;
+}
+
 export interface MandateAllowedMerchantTable {
   mandateId: string;
   merchantId: string;
@@ -238,6 +253,7 @@ export interface AIPayDatabase {
   transactions: TransactionTable;
   paymentAttempts: PaymentAttemptTable;
   idempotencyRecords: IdempotencyRecordTable;
+  paymentProviderCalls: PaymentProviderCallTable;
 }
 
 export interface CreateDatabaseOptions {

@@ -124,6 +124,8 @@ Reservation 终结固定为 released（payment_failed/cancelled）、expired（t
 
 同一请求 body 还必须携带 16-128 字符 `idempotencyKey`，该字段受 Agent Content-Digest 签名保护。数据库只保存 key/request SHA-256 和 Transaction 引用；并发相同请求返回同一交易，不同 payload 复用 key 返回冲突。
 
+每次 Payment Provider create/retry/query 都先写 `pcl_` started 账本，再在网络调用后记录 Provider status/reference、稳定错误和耗时；PaymentAttempt 只汇总当前状态。残留 started 代表可能的崩溃中调用，必须查询恢复，不能覆盖或静默删除。
+
 ## 环境变量
 
 本地开发从 `.env.example` 创建 `.env`。`.env` 已被 Git 忽略，不要在其中提交真实密钥、Token 或用户数据。
