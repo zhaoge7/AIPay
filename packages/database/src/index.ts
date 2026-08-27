@@ -150,8 +150,9 @@ export interface QuoteTable {
   issuedAt: Date;
   expiresAt: Date;
   proofScheme: Generated<'aipay-jcs-ed25519-v1'>;
-  proofKeyId: string;
-  proofValue: Uint8Array;
+  proofKeyId: string | null;
+  proofValue: Uint8Array | null;
+  status: Generated<'draft' | 'active' | 'expired'>;
   createdAt: Generated<Date>;
 }
 

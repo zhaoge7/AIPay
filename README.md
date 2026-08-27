@@ -116,6 +116,8 @@ Reservation 终结固定为 released（payment_failed/cancelled）、expired（t
 
 金额严格大于 `approvalRequiredAbove` 时，`ManualApprovalService` 只创建 requires_confirmation Transaction，不预占、不创建 PaymentAttempt。所有者通过 `POST /v1/transactions/:transactionId/confirmation` approve/reject；批准只进入 authorized，后续支付前仍必须重新预占。
 
+商户通过 `POST /v1/merchants/:merchantId/quotes` 创建 unsigned Quote draft，只提交 service、quantity、税费行为/税额和 30-900 秒有效期。unit/固定单价来自服务目录，subtotal/total 由服务端 bigint 计算；客户端不能提交派生价格字段。
+
 ## 环境变量
 
 本地开发从 `.env.example` 创建 `.env`。`.env` 已被 Git 忽略，不要在其中提交真实密钥、Token 或用户数据。

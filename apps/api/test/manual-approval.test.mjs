@@ -135,6 +135,7 @@ test('creates pending transactions above threshold without executing payment', a
         expiresAt: new Date(Date.now() + 60_000),
         proofKeyId: key.id,
         proofValue: Buffer.alloc(64, Number(amountMinor) % 255),
+        status: 'active',
       })
       .returning('id')
       .executeTakeFirstOrThrow();

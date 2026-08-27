@@ -140,10 +140,10 @@ test('creates the complete core schema and enforces Contract bindings', async (c
       text: `INSERT INTO aipay.quotes
         (merchant_id, service_id, unit, quantity, unit_price_amount_minor,
          subtotal_amount_minor, tax_behavior, tax_amount_minor, total_amount_minor,
-         issued_at, expires_at, proof_key_id, proof_value)
+         issued_at, expires_at, proof_key_id, proof_value, status)
         VALUES ($1, $2, 'request', 3, 200, 599, 'inclusive', 34, 599,
           '2026-08-27T01:00:00.000Z', '2026-08-27T01:05:00.000Z',
-          $3, decode(repeat('04', 64), 'hex'))`,
+          $3, decode(repeat('04', 64), 'hex'), 'active')`,
       values: [merchantId, serviceId, signingKeyId],
     },
     'quotes_subtotal_check',
@@ -154,10 +154,10 @@ test('creates the complete core schema and enforces Contract bindings', async (c
       text: `INSERT INTO aipay.quotes
         (merchant_id, service_id, unit, quantity, unit_price_amount_minor,
          subtotal_amount_minor, tax_behavior, tax_amount_minor, total_amount_minor,
-         issued_at, expires_at, proof_key_id, proof_value)
+         issued_at, expires_at, proof_key_id, proof_value, status)
         VALUES ($1, $2, 'request', 3, 200, 600, 'inclusive', 34, 600,
           '2026-08-27T01:00:00.000Z', '2026-08-27T01:05:00.000Z',
-          $3, decode(repeat('04', 63), 'hex'))`,
+          $3, decode(repeat('04', 63), 'hex'), 'active')`,
       values: [merchantId, serviceId, signingKeyId],
     },
     'quotes_proof_value_length_check',
@@ -165,11 +165,11 @@ test('creates the complete core schema and enforces Contract bindings', async (c
   const quote = await client.query(
     `INSERT INTO aipay.quotes
       (merchant_id, service_id, unit, quantity, unit_price_amount_minor,
-       subtotal_amount_minor, tax_behavior, tax_amount_minor, total_amount_minor,
-       issued_at, expires_at, proof_key_id, proof_value)
+      subtotal_amount_minor, tax_behavior, tax_amount_minor, total_amount_minor,
+       issued_at, expires_at, proof_key_id, proof_value, status)
       VALUES ($1, $2, 'request', 3, 200, 600, 'inclusive', 34, 600,
         '2026-08-27T01:00:00.000Z', '2026-08-27T01:05:00.000Z',
-        $3, decode(repeat('04', 64), 'hex'))
+        $3, decode(repeat('04', 64), 'hex'), 'active')
       RETURNING id`,
     [merchantId, serviceId, signingKeyId],
   );

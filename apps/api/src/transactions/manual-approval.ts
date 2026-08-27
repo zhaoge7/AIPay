@@ -195,6 +195,7 @@ export class ManualApprovalService {
             'quotes.currency',
             'quotes.totalAmountMinor',
             'quotes.expiresAt',
+            'quotes.status as quoteStatus',
             'services.category',
             'services.status as serviceStatus',
             'merchants.status as merchantStatus',
@@ -206,7 +207,11 @@ export class ManualApprovalService {
           throw new ManualApprovalError('service_unavailable');
         }
 
-        if (quote.serviceStatus !== 'enabled' || quote.merchantStatus !== 'active') {
+        if (
+          quote.quoteStatus !== 'active' ||
+          quote.serviceStatus !== 'enabled' ||
+          quote.merchantStatus !== 'active'
+        ) {
           throw new ManualApprovalError('service_unavailable');
         }
 
