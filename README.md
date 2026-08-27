@@ -132,6 +132,14 @@ PaymentAttempt 首次进入 succeeded、failed 或 unknown 时，Transaction 状
 
 商户 Webhook 使用系统 Ed25519 密钥签署原始 JSON body，固定发送 `x-aipay-event-id`、`x-aipay-key-id`、`x-aipay-timestamp` 和 `x-aipay-signature`；接收方必须在解析 JSON 前按原始字节验签，并按 `obx_` event ID 去重。每个事件保留 `whd_` 投递及逐次 `wha_` 尝试，HTTP 状态、稳定错误、耗时、退避和 dead_letter 均可查询。出站传输在每次连接前解析 DNS，只接受公网单播地址、固定连接解析后的 IP、保留原 Host/TLS SNI 且不跟随重定向；明文 HTTP 仅可通过显式开发选项访问纯回环地址。
 
+## 支付宝沙箱路线
+
+首个真实通道选择支付宝 [AI 网页应用收款](https://aipay.alipay.com/docs/ai-web-app-payment-qianyi/api-list/alipay-trade-page-pay.html)：使用 `alipay.trade.page.pay` 生成用户支付动作，`alipay.trade.query` 主动查单，`alipay.trade.refund`/`alipay.trade.fastpay.refund.query` 全额退款及查询。沙箱固定使用 `https://openapi-sandbox.dl.alipaydev.com/gateway.do`、RSA2、独立沙箱 appId/应用私钥/支付宝公钥和买卖家测试账户；密钥不得进入 Git、日志或数据库。
+
+支付宝通知是 form-urlencoded POST。处理方必须先验 RSA2，再绑定 `app_id`、`seller_id`、`out_trade_no`、`total_amount`，只把 `TRADE_SUCCESS`/`TRADE_FINISHED` 视为支付成功；按 `notify_id` 和订单状态幂等，成功后返回纯文本 `success`。回调可能丢失，因此必须同时实现 `alipay.trade.query`。退款重试固定复用 `out_request_no`，`code=10000` 不等于退款成功，需检查 `fund_change=Y` 或主动查询。
+
+当前沙箱只验证单一自营测试商户。生产多商户模式必须由实际收款商户完成产品签约，并通过服务商应用授权 `app_auth_token` 代调用；AIPay 不使用一个自有商户号代收第三方资金。支付宝 [AI 按量付费](https://aipay.alipay.com/docs/ai-receive/MACHINE_PAY.html) 与 API/MCP/Skill 最匹配，但它属于 402 `Payment-Needed`/`Payment-Proof` 协议，将在 Payment Proof 与 SDK 阶段接入，不替代本阶段的 Provider 适配器。
+
 ## 环境变量
 
 本地开发从 `.env.example` 创建 `.env`。`.env` 已被 Git 忽略，不要在其中提交真实密钥、Token 或用户数据。
