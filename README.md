@@ -122,6 +122,8 @@ Reservation 终结固定为 released（payment_failed/cancelled）、expired（t
 
 签名 Agent 通过 `POST /v1/transactions` 提交 active quoteId/mandateId。服务同时检查授权生命周期、Agent、商户/品类、Quote 状态/时效和预算容量，并由数据库复合外键锁定所有引用；创建只进入 authorized 或 requires_confirmation，不执行支付。
 
+同一请求 body 还必须携带 16-128 字符 `idempotencyKey`，该字段受 Agent Content-Digest 签名保护。数据库只保存 key/request SHA-256 和 Transaction 引用；并发相同请求返回同一交易，不同 payload 复用 key 返回冲突。
+
 ## 环境变量
 
 本地开发从 `.env.example` 创建 `.env`。`.env` 已被 Git 忽略，不要在其中提交真实密钥、Token 或用户数据。

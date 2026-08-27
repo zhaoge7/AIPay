@@ -153,6 +153,7 @@ test('creates Transactions only from matching active Quote and Mandate reference
     agentId,
     parseResourceId(`qte_${quote200.id}`, 'qte'),
     mandateId,
+    'transaction-test-200',
   );
   assert.equal(authorized.status, 'authorized');
   assert.equal(authorized.quoteId, `qte_${quote200.id}`);
@@ -166,7 +167,12 @@ test('creates Transactions only from matching active Quote and Mandate reference
   assert.deepEqual(authorized.refundIds, []);
 
   await assert.rejects(
-    creation.create(agentId, parseResourceId(`qte_${quote200.id}`, 'qte'), mandateId),
+    creation.create(
+      agentId,
+      parseResourceId(`qte_${quote200.id}`, 'qte'),
+      mandateId,
+      'transaction-test-200-other',
+    ),
     (error) => error instanceof TransactionCreationError && error.code === 'transaction_exists',
   );
 
@@ -175,19 +181,30 @@ test('creates Transactions only from matching active Quote and Mandate reference
     agentId,
     parseResourceId(`qte_${quote600.id}`, 'qte'),
     mandateId,
+    'transaction-test-600',
   );
   assert.equal(pending.status, 'requires_confirmation');
 
   const draftQuote = await quote('300', 'draft');
   await assert.rejects(
-    creation.create(agentId, parseResourceId(`qte_${draftQuote.id}`, 'qte'), mandateId),
+    creation.create(
+      agentId,
+      parseResourceId(`qte_${draftQuote.id}`, 'qte'),
+      mandateId,
+      'transaction-test-draft',
+    ),
     (error) => error instanceof TransactionCreationError && error.code === 'quote_inactive',
   );
 
   const wrongAgent = parseResourceId('agt_01890f3e-a200-7cc2-98c5-7f6a1b2c3d4e', 'agt');
   const wrongAgentQuote = await quote('300');
   await assert.rejects(
-    creation.create(wrongAgent, parseResourceId(`qte_${wrongAgentQuote.id}`, 'qte'), mandateId),
+    creation.create(
+      wrongAgent,
+      parseResourceId(`qte_${wrongAgentQuote.id}`, 'qte'),
+      mandateId,
+      'transaction-test-wrong-agent',
+    ),
     (error) => error instanceof TransactionCreationError && error.code === 'agent_unavailable',
   );
 
@@ -206,7 +223,12 @@ test('creates Transactions only from matching active Quote and Mandate reference
     .executeTakeFirstOrThrow();
   const deniedQuote = await quote('300', 'active', deniedService.id);
   await assert.rejects(
-    creation.create(agentId, parseResourceId(`qte_${deniedQuote.id}`, 'qte'), mandateId),
+    creation.create(
+      agentId,
+      parseResourceId(`qte_${deniedQuote.id}`, 'qte'),
+      mandateId,
+      'transaction-test-policy-denied',
+    ),
     (error) => error instanceof TransactionCreationError && error.code === 'policy_denied',
   );
 
@@ -217,7 +239,12 @@ test('creates Transactions only from matching active Quote and Mandate reference
     .executeTakeFirstOrThrow();
   const pausedQuote = await quote('300');
   await assert.rejects(
-    creation.create(agentId, parseResourceId(`qte_${pausedQuote.id}`, 'qte'), mandateId),
+    creation.create(
+      agentId,
+      parseResourceId(`qte_${pausedQuote.id}`, 'qte'),
+      mandateId,
+      'transaction-test-paused',
+    ),
     (error) => error instanceof TransactionCreationError && error.code === 'mandate_inactive',
   );
 

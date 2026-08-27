@@ -9,7 +9,7 @@ import { TransactionCreationError, TransactionCreationService } from './create.j
 const bodySchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['quoteId', 'mandateId'],
+  required: ['quoteId', 'mandateId', 'idempotencyKey'],
   properties: {
     quoteId: {
       type: 'string',
@@ -19,12 +19,14 @@ const bodySchema = {
       type: 'string',
       pattern: '^mdt_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
     },
+    idempotencyKey: { type: 'string', pattern: '^[A-Za-z0-9._~-]{16,128}$' },
   },
 } as const;
 
 interface Body {
   readonly quoteId: string;
   readonly mandateId: string;
+  readonly idempotencyKey: string;
 }
 
 function agentId(request: FastifyRequest) {
@@ -46,6 +48,18 @@ function sendCreationError(reply: FastifyReply, traceId: string, error: Transact
 
   if (error.code === 'transaction_exists') {
     return sendProblem(reply, createApiProblem('TRANSACTION_STATE_CONFLICT', traceId));
+  }
+
+  if (error.code === 'idempotency_conflict') {
+    return sendProblem(reply, createApiProblem('IDEMPOTENCY_CONFLICT', traceId));
+  }
+
+  if (error.code === 'idempotency_in_progress') {
+    return sendProblem(reply, createApiProblem('IDEMPOTENCY_IN_PROGRESS', traceId));
+  }
+
+  if (error.code === 'invalid_idempotency_key') {
+    return sendProblem(reply, createApiProblem('INVALID_REQUEST', traceId));
   }
 
   return sendProblem(reply, createApiProblem('AUTHORIZATION_DENIED', traceId));
@@ -70,6 +84,7 @@ export function registerTransactionCreationRoutes(app: FastifyInstance, database
           agentId(request),
           parseResourceId(request.body.quoteId, 'qte'),
           parseResourceId(request.body.mandateId, 'mdt'),
+          request.body.idempotencyKey,
         );
         return await reply.status(201).send(createApiSuccess(result, traceId));
       } catch (error) {

@@ -19,6 +19,7 @@ const expectedTables = [
   'budget_reservations',
   'deliveries',
   'developers',
+  'idempotency_records',
   'mandate_allowed_categories',
   'mandate_allowed_merchants',
   'mandates',
@@ -48,14 +49,17 @@ test('creates the complete core schema and enforces Contract bindings', async (c
     user: 'aipay',
     password: 'schema-test-only',
   };
-  context.after(() => removePostgresContainer(config.name));
+  let client;
+  context.after(async () => {
+    await client?.end();
+    removePostgresContainer(config.name);
+  });
 
   const { databaseUrl } = await startPostgresContainer(config);
   await runMigrations(databaseUrl, discardLog);
 
-  const client = new Client({ connectionString: databaseUrl });
+  client = new Client({ connectionString: databaseUrl });
   await client.connect();
-  context.after(() => client.end());
 
   const tables = await client.query(
     "SELECT table_name FROM information_schema.tables WHERE table_schema = 'aipay' ORDER BY table_name",
@@ -244,13 +248,16 @@ test('enforces quote arithmetic, proof lengths and audit result invariants', asy
     user: 'aipay',
     password: 'constraints-test-only',
   };
-  context.after(() => removePostgresContainer(config.name));
+  let client;
+  context.after(async () => {
+    await client?.end();
+    removePostgresContainer(config.name);
+  });
 
   const { databaseUrl } = await startPostgresContainer(config);
   await runMigrations(databaseUrl, discardLog);
-  const client = new Client({ connectionString: databaseUrl });
+  client = new Client({ connectionString: databaseUrl });
   await client.connect();
-  context.after(() => client.end());
 
   await assertQueryFails(
     client,

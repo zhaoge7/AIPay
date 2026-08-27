@@ -200,6 +200,17 @@ export interface PaymentAttemptTable {
   updatedAt: Generated<Date>;
 }
 
+export interface IdempotencyRecordTable {
+  id: Generated<string>;
+  agentId: string;
+  operation: string;
+  keyHash: Uint8Array;
+  requestHash: Uint8Array;
+  transactionId: string | null;
+  createdAt: Generated<Date>;
+  expiresAt: Date;
+}
+
 export interface MandateAllowedMerchantTable {
   mandateId: string;
   merchantId: string;
@@ -226,6 +237,7 @@ export interface AIPayDatabase {
   quotes: QuoteTable;
   transactions: TransactionTable;
   paymentAttempts: PaymentAttemptTable;
+  idempotencyRecords: IdempotencyRecordTable;
 }
 
 export interface CreateDatabaseOptions {

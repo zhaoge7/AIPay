@@ -1,3 +1,5 @@
+import { createHash, timingSafeEqual } from 'node:crypto';
+
 import {
   createMoney,
   getResourceUuid,
@@ -7,7 +9,7 @@ import {
   type ResourceId,
   type TransactionWire,
 } from '@aipay/contracts';
-import type { Database } from '@aipay/database';
+import type { Database, DatabaseTransaction } from '@aipay/database';
 import {
   evaluateAmountCountPolicy,
   evaluateApprovalPolicy,
@@ -22,7 +24,10 @@ export type TransactionCreationErrorCode =
   | 'agent_unavailable'
   | 'policy_denied'
   | 'limit_exceeded'
-  | 'transaction_exists';
+  | 'transaction_exists'
+  | 'invalid_idempotency_key'
+  | 'idempotency_conflict'
+  | 'idempotency_in_progress';
 
 export class TransactionCreationError extends Error {
   readonly code: TransactionCreationErrorCode;
@@ -45,6 +50,83 @@ function hasDatabaseConstraint(error: unknown, constraint: string): boolean {
   );
 }
 
+const transactionColumns = [
+  'id',
+  'quoteId',
+  'mandateId',
+  'principalId',
+  'agentId',
+  'merchantId',
+  'serviceId',
+  'currency',
+  'amountMinor',
+  'status',
+  'createdAt',
+  'updatedAt',
+] as const;
+
+interface TransactionRow {
+  readonly id: string;
+  readonly quoteId: string;
+  readonly mandateId: string;
+  readonly principalId: string;
+  readonly agentId: string;
+  readonly merchantId: string;
+  readonly serviceId: string;
+  readonly currency: 'CNY';
+  readonly amountMinor: string;
+  readonly status:
+    | 'requires_confirmation'
+    | 'authorized'
+    | 'payment_pending'
+    | 'payment_review'
+    | 'paid'
+    | 'delivery_pending'
+    | 'delivery_review'
+    | 'delivered'
+    | 'refund_pending'
+    | 'refund_review'
+    | 'refunded'
+    | 'settled'
+    | 'failed'
+    | 'cancelled';
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
+}
+
+function rowToWire(row: TransactionRow): Readonly<TransactionWire> {
+  const contract = parseTransaction({
+    schemaVersion: '1',
+    transactionId: `txn_${row.id}`,
+    quoteId: `qte_${row.quoteId}`,
+    mandateId: `mdt_${row.mandateId}`,
+    principalId: `dev_${row.principalId}`,
+    agentId: `agt_${row.agentId}`,
+    merchantId: `mch_${row.merchantId}`,
+    serviceId: `svc_${row.serviceId}`,
+    amount: { currency: row.currency, amountMinor: row.amountMinor },
+    status: row.status,
+    paymentAttemptIds: [],
+    deliveryId: null,
+    refundIds: [],
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  });
+  return toTransactionWire(contract);
+}
+
+async function loadTransaction(
+  transaction: DatabaseTransaction,
+  transactionId: string,
+): Promise<Readonly<TransactionWire>> {
+  const row = await transaction
+    .selectFrom('transactions')
+    .select(transactionColumns)
+    .where('id', '=', transactionId)
+    .executeTakeFirstOrThrow();
+  return rowToWire(row);
+}
+
 export class TransactionCreationService {
   readonly #database: Database;
   readonly #now: () => Date;
@@ -58,11 +140,71 @@ export class TransactionCreationService {
     agentId: ResourceId<'agt'>,
     quoteId: ResourceId<'qte'>,
     mandateId: ResourceId<'mdt'>,
+    idempotencyKey: string,
   ): Promise<Readonly<TransactionWire>> {
+    if (!/^[A-Za-z0-9._~-]{16,128}$/u.test(idempotencyKey)) {
+      throw new TransactionCreationError('invalid_idempotency_key');
+    }
+
     const now = this.#now();
+    const keyHash = createHash('sha256').update(idempotencyKey, 'utf8').digest();
+    const requestHash = createHash('sha256')
+      .update(JSON.stringify({ quoteId, mandateId }), 'utf8')
+      .digest();
 
     try {
       return await this.#database.transaction().execute(async (transaction) => {
+        const idempotencyAgent = await transaction
+          .selectFrom('agents')
+          .select('status')
+          .where('id', '=', getResourceUuid(agentId))
+          .executeTakeFirst();
+
+        if (idempotencyAgent?.status !== 'enabled') {
+          throw new TransactionCreationError('agent_unavailable');
+        }
+
+        const insertedIdempotency = await transaction
+          .insertInto('idempotencyRecords')
+          .values({
+            agentId: getResourceUuid(agentId),
+            operation: 'transaction.create',
+            keyHash,
+            requestHash,
+            transactionId: null,
+            expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1_000),
+          })
+          .onConflict((conflict) =>
+            conflict.columns(['agentId', 'operation', 'keyHash']).doNothing(),
+          )
+          .returning('id')
+          .executeTakeFirst();
+
+        if (insertedIdempotency === undefined) {
+          const existing = await transaction
+            .selectFrom('idempotencyRecords')
+            .select(['id', 'requestHash', 'transactionId'])
+            .where('agentId', '=', getResourceUuid(agentId))
+            .where('operation', '=', 'transaction.create')
+            .where('keyHash', '=', keyHash)
+            .forUpdate()
+            .executeTakeFirstOrThrow();
+
+          if (
+            existing.requestHash.byteLength !== requestHash.byteLength ||
+            !timingSafeEqual(existing.requestHash, requestHash)
+          ) {
+            throw new TransactionCreationError('idempotency_conflict');
+          }
+
+          if (existing.transactionId === null) {
+            throw new TransactionCreationError('idempotency_in_progress');
+          }
+
+          return loadTransaction(transaction, existing.transactionId);
+        }
+
+        const idempotencyRecordId = insertedIdempotency.id;
         const mandate = await transaction
           .selectFrom('mandates')
           .select([
@@ -207,39 +349,14 @@ export class TransactionCreationService {
             amountMinor: amount.amountMinor,
             status: approval.requiresConfirmation ? 'requires_confirmation' : 'authorized',
           })
-          .returning([
-            'id',
-            'quoteId',
-            'mandateId',
-            'principalId',
-            'agentId',
-            'merchantId',
-            'serviceId',
-            'currency',
-            'amountMinor',
-            'status',
-            'createdAt',
-            'updatedAt',
-          ])
+          .returning(transactionColumns)
           .executeTakeFirstOrThrow();
-        const contract = parseTransaction({
-          schemaVersion: '1',
-          transactionId: `txn_${row.id}`,
-          quoteId: `qte_${row.quoteId}`,
-          mandateId: `mdt_${row.mandateId}`,
-          principalId: `dev_${row.principalId}`,
-          agentId: `agt_${row.agentId}`,
-          merchantId: `mch_${row.merchantId}`,
-          serviceId: `svc_${row.serviceId}`,
-          amount: { currency: row.currency, amountMinor: row.amountMinor },
-          status: row.status,
-          paymentAttemptIds: [],
-          deliveryId: null,
-          refundIds: [],
-          createdAt: row.createdAt.toISOString(),
-          updatedAt: row.updatedAt.toISOString(),
-        });
-        return toTransactionWire(contract);
+        await transaction
+          .updateTable('idempotencyRecords')
+          .set({ transactionId: row.id })
+          .where('id', '=', idempotencyRecordId)
+          .executeTakeFirstOrThrow();
+        return rowToWire(row);
       });
     } catch (error) {
       if (hasDatabaseConstraint(error, 'transactions_quote_unique')) {
