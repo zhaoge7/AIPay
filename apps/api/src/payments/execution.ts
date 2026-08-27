@@ -11,6 +11,7 @@ import { enqueueOutboxEvent, type Database, type DatabaseTransaction } from '@ai
 import {
   PaymentProviderError,
   type PaymentProvider,
+  type ProviderPaymentAction,
   type ProviderPaymentResult,
   type ProviderPaymentStatus,
 } from '@aipay/payment';
@@ -39,6 +40,7 @@ export interface PaymentAttemptView {
   readonly amount: Readonly<{ currency: 'CNY'; amountMinor: string }>;
   readonly status: ProviderPaymentStatus;
   readonly errorCode: string | null;
+  readonly action: Readonly<ProviderPaymentAction> | null;
   readonly createdAt: string;
   readonly updatedAt: string;
 }
@@ -113,19 +115,22 @@ async function enqueuePaymentStateChange(
   });
 }
 
-function toAttemptView(row: {
-  readonly id: string;
-  readonly transactionId: string;
-  readonly attemptNumber: number;
-  readonly provider: string;
-  readonly providerReference: string | null;
-  readonly currency: 'CNY';
-  readonly amountMinor: string;
-  readonly status: ProviderPaymentStatus;
-  readonly errorCode: string | null;
-  readonly createdAt: Date;
-  readonly updatedAt: Date;
-}): Readonly<PaymentAttemptView> {
+function toAttemptView(
+  row: {
+    readonly id: string;
+    readonly transactionId: string;
+    readonly attemptNumber: number;
+    readonly provider: string;
+    readonly providerReference: string | null;
+    readonly currency: 'CNY';
+    readonly amountMinor: string;
+    readonly status: ProviderPaymentStatus;
+    readonly errorCode: string | null;
+    readonly createdAt: Date;
+    readonly updatedAt: Date;
+  },
+  action: Readonly<ProviderPaymentAction> | null = null,
+): Readonly<PaymentAttemptView> {
   return Object.freeze({
     paymentAttemptId: parseResourceId(`pat_${row.id}`, 'pat'),
     transactionId: parseResourceId(`txn_${row.transactionId}`, 'txn'),
@@ -135,6 +140,7 @@ function toAttemptView(row: {
     amount: createMoney(row.currency, row.amountMinor),
     status: row.status,
     errorCode: row.errorCode,
+    action,
     createdAt: formatUtcDateTime(row.createdAt),
     updatedAt: formatUtcDateTime(row.updatedAt),
   });
@@ -419,7 +425,7 @@ export class PaymentExecutionService {
           attemptErrorCode,
         );
       }
-      return toAttemptView(attempt);
+      return toAttemptView(attempt, result.action);
     });
   }
 

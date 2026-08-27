@@ -11,6 +11,7 @@
     "test": "pnpm run build && node --test test/**/*.test.mjs"
   },
   "dependencies": {
-    "@aipay/contracts": "workspace:*"
+    "@aipay/contracts": "workspace:*",
+    "alipay-sdk": "4.14.0"
   }
 }

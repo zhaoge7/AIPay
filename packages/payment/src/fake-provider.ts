@@ -49,6 +49,7 @@ function freezePayment(record: PaymentRecord): Readonly<ProviderPaymentResult> {
     status: record.status,
     occurredAt: record.occurredAt,
     failureCode: record.failureCode,
+    action: null,
   });
 }
 

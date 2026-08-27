@@ -24,11 +24,18 @@ export interface QueryPaymentRequest {
   readonly providerPaymentId: string;
 }
 
+export interface ProviderPaymentAction {
+  readonly type: 'redirect';
+  readonly method: 'GET';
+  readonly url: string;
+}
+
 export interface ProviderPaymentResult {
   readonly providerPaymentId: string;
   readonly status: ProviderPaymentStatus;
   readonly occurredAt: UtcDateTime;
   readonly failureCode: string | null;
+  readonly action: Readonly<ProviderPaymentAction> | null;
 }
 
 export interface CreateRefundRequest {
@@ -131,6 +138,10 @@ export function isTerminalRefundStatus(status: ProviderRefundStatus): boolean {
   return status === 'succeeded' || status === 'failed';
 }
 
+export {
+  AlipayWebPaymentProvider,
+  type AlipayWebPaymentProviderOptions,
+} from './alipay-web-provider.js';
 export {
   FakePaymentProvider,
   type FakeOutcome,
