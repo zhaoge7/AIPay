@@ -15,6 +15,7 @@ import type { MandateIssuer } from './mandates/issuer.js';
 import { registerMandateLifecycleRoutes } from './mandates/lifecycle-routes.js';
 import { registerCatalogRoutes } from './services/catalog-routes.js';
 import { registerServiceRoutes } from './services/routes.js';
+import { registerManualApprovalRoutes } from './transactions/manual-approval-routes.js';
 
 const authBodySchema = {
   type: 'object',
@@ -97,6 +98,7 @@ export async function buildApp(options: BuildAppOptions) {
   registerCatalogRoutes(app, options.database);
   registerMandateRoutes(app, options.database, options.mandateIssuer);
   registerMandateLifecycleRoutes(app, options.database);
+  registerManualApprovalRoutes(app, options.database);
 
   app.setErrorHandler((error, request, reply) => {
     const traceId = createTraceId();

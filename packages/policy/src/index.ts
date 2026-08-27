@@ -76,3 +76,16 @@ export function evaluateAmountCountPolicy(
     nextCompletedTransactionCount: usage.completedTransactionCount + 1,
   });
 }
+
+export type ApprovalDecision =
+  Readonly<{ requiresConfirmation: true }> | Readonly<{ requiresConfirmation: false }>;
+
+export function evaluateApprovalPolicy(
+  mandate: Pick<Mandate, 'approvalRequiredAbove'>,
+  amount: Readonly<Money>,
+): ApprovalDecision {
+  return Object.freeze({
+    requiresConfirmation:
+      BigInt(amount.amountMinor) > BigInt(mandate.approvalRequiredAbove.amountMinor),
+  });
+}

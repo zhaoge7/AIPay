@@ -134,6 +134,71 @@ export interface BudgetReservationTable {
   finalizationReason: string | null;
 }
 
+export interface QuoteTable {
+  id: Generated<string>;
+  schemaVersion: Generated<'1'>;
+  merchantId: string;
+  serviceId: string;
+  unit: string;
+  quantity: number;
+  currency: Generated<'CNY'>;
+  unitPriceAmountMinor: string;
+  subtotalAmountMinor: string;
+  taxBehavior: 'inclusive' | 'exclusive';
+  taxAmountMinor: string;
+  totalAmountMinor: string;
+  issuedAt: Date;
+  expiresAt: Date;
+  proofScheme: Generated<'aipay-jcs-ed25519-v1'>;
+  proofKeyId: string;
+  proofValue: Uint8Array;
+  createdAt: Generated<Date>;
+}
+
+export interface TransactionTable {
+  id: Generated<string>;
+  schemaVersion: Generated<'1'>;
+  quoteId: string;
+  mandateId: string;
+  principalId: string;
+  agentId: string;
+  merchantId: string;
+  serviceId: string;
+  currency: Generated<'CNY'>;
+  amountMinor: string;
+  status:
+    | 'requires_confirmation'
+    | 'authorized'
+    | 'payment_pending'
+    | 'payment_review'
+    | 'paid'
+    | 'delivery_pending'
+    | 'delivery_review'
+    | 'delivered'
+    | 'refund_pending'
+    | 'refund_review'
+    | 'refunded'
+    | 'settled'
+    | 'failed'
+    | 'cancelled';
+  createdAt: Generated<Date>;
+  updatedAt: Generated<Date>;
+}
+
+export interface PaymentAttemptTable {
+  id: Generated<string>;
+  transactionId: string;
+  attemptNumber: number;
+  provider: string;
+  providerReference: string | null;
+  currency: Generated<'CNY'>;
+  amountMinor: string;
+  status: 'pending' | 'succeeded' | 'failed' | 'unknown';
+  errorCode: string | null;
+  createdAt: Generated<Date>;
+  updatedAt: Generated<Date>;
+}
+
 export interface MandateAllowedMerchantTable {
   mandateId: string;
   merchantId: string;
@@ -157,6 +222,9 @@ export interface AIPayDatabase {
   mandateAllowedMerchants: MandateAllowedMerchantTable;
   mandateAllowedCategories: MandateAllowedCategoryTable;
   budgetReservations: BudgetReservationTable;
+  quotes: QuoteTable;
+  transactions: TransactionTable;
+  paymentAttempts: PaymentAttemptTable;
 }
 
 export interface CreateDatabaseOptions {

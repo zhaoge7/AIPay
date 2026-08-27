@@ -114,6 +114,8 @@ pnpm --filter @aipay/api generate:issuer
 
 Reservation 终结固定为 released（payment_failed/cancelled）、expired（timeout）或 confirmed（payment_succeeded）。失败/超时归还 reserved，成功原子转入 spent/count；重复同一终态幂等，终态之间不可转换。`expireDue` 复用同一终结事务回收到期 held 记录。
 
+金额严格大于 `approvalRequiredAbove` 时，`ManualApprovalService` 只创建 requires_confirmation Transaction，不预占、不创建 PaymentAttempt。所有者通过 `POST /v1/transactions/:transactionId/confirmation` approve/reject；批准只进入 authorized，后续支付前仍必须重新预占。
+
 ## 环境变量
 
 本地开发从 `.env.example` 创建 `.env`。`.env` 已被 Git 忽略，不要在其中提交真实密钥、Token 或用户数据。
