@@ -7,7 +7,7 @@ import {
   parseResourceId,
   type ResourceId,
 } from '@aipay/contracts';
-import type { Database } from '@aipay/database';
+import { enqueueOutboxEvent, type Database, type DatabaseTransaction } from '@aipay/database';
 import {
   PaymentProviderError,
   type PaymentProvider,
@@ -45,8 +45,10 @@ export interface PaymentAttemptView {
 
 interface ExecutionContext {
   readonly transactionId: ResourceId<'txn'>;
+  readonly merchantId: ResourceId<'mch'>;
   readonly paymentAttemptId: ResourceId<'pat'>;
   readonly amountMinor: string;
+  readonly provider: string;
   readonly providerReference: string | null;
   readonly callId: string;
   readonly startedAt: Date;
@@ -67,6 +69,48 @@ function transactionStatus(status: ProviderPaymentStatus) {
     case 'unknown':
       return 'payment_review' as const;
   }
+}
+
+function paymentEventType(status: ProviderPaymentStatus) {
+  switch (status) {
+    case 'succeeded':
+      return 'transaction.paid' as const;
+    case 'failed':
+      return 'transaction.failed' as const;
+    case 'unknown':
+      return 'transaction.payment_review' as const;
+    case 'pending':
+      return null;
+  }
+}
+
+async function enqueuePaymentStateChange(
+  transaction: DatabaseTransaction,
+  context: ExecutionContext,
+  status: ProviderPaymentStatus,
+  providerReference: string | null,
+  errorCode: string | null,
+): Promise<void> {
+  const eventType = paymentEventType(status);
+
+  if (eventType === null) {
+    return;
+  }
+
+  await enqueueOutboxEvent(transaction, {
+    aggregateType: 'transaction',
+    aggregateId: context.transactionId,
+    eventType,
+    payload: {
+      merchantId: context.merchantId,
+      transactionId: context.transactionId,
+      paymentAttemptId: context.paymentAttemptId,
+      paymentStatus: status,
+      provider: context.provider,
+      providerReference,
+      errorCode,
+    },
+  });
 }
 
 function toAttemptView(row: {
@@ -128,7 +172,7 @@ export class PaymentExecutionService {
     const context = await this.#database.transaction().execute(async (transaction) => {
       const paymentTransaction = await transaction
         .selectFrom('transactions')
-        .select(['id', 'amountMinor', 'currency', 'status'])
+        .select(['id', 'merchantId', 'amountMinor', 'currency', 'status'])
         .where('id', '=', getResourceUuid(transactionId))
         .forUpdate()
         .executeTakeFirst();
@@ -190,8 +234,10 @@ export class PaymentExecutionService {
 
       return Object.freeze({
         transactionId,
+        merchantId: parseResourceId(`mch_${paymentTransaction.merchantId}`, 'mch'),
         paymentAttemptId,
         amountMinor: paymentTransaction.amountMinor,
+        provider: provider.name,
         providerReference: null,
         callId: call.id,
         startedAt: call.startedAt,
@@ -277,6 +323,11 @@ export class PaymentExecutionService {
       }
 
       const transactionId = parseResourceId(`txn_${attempt.transactionId}`, 'txn');
+      const paymentTransaction = await transaction
+        .selectFrom('transactions')
+        .select('merchantId')
+        .where('id', '=', attempt.transactionId)
+        .executeTakeFirstOrThrow();
       const call = await transaction
         .insertInto('paymentProviderCalls')
         .values({
@@ -300,8 +351,10 @@ export class PaymentExecutionService {
 
       return Object.freeze({
         transactionId,
+        merchantId: parseResourceId(`mch_${paymentTransaction.merchantId}`, 'mch'),
         paymentAttemptId,
         amountMinor: attempt.amountMinor,
+        provider: provider.name,
         providerReference: attempt.providerReference,
         callId: call.id,
         startedAt: call.startedAt,
@@ -323,6 +376,12 @@ export class PaymentExecutionService {
           : null;
 
     return this.#database.transaction().execute(async (transaction) => {
+      const previousAttempt = await transaction
+        .selectFrom('paymentAttempts')
+        .select('status')
+        .where('id', '=', getResourceUuid(context.paymentAttemptId))
+        .forUpdate()
+        .executeTakeFirstOrThrow();
       await transaction
         .updateTable('paymentProviderCalls')
         .set({
@@ -351,6 +410,15 @@ export class PaymentExecutionService {
         .set({ status: transactionStatus(result.status), updatedAt: completedAt })
         .where('id', '=', getResourceUuid(context.transactionId))
         .executeTakeFirstOrThrow();
+      if (previousAttempt.status !== result.status) {
+        await enqueuePaymentStateChange(
+          transaction,
+          context,
+          result.status,
+          result.providerPaymentId,
+          attemptErrorCode,
+        );
+      }
       return toAttemptView(attempt);
     });
   }
@@ -369,6 +437,12 @@ export class PaymentExecutionService {
     const status: ProviderPaymentStatus = providerError.kind === 'retryable' ? 'unknown' : 'failed';
 
     await this.#database.transaction().execute(async (transaction) => {
+      const previousAttempt = await transaction
+        .selectFrom('paymentAttempts')
+        .select('status')
+        .where('id', '=', getResourceUuid(context.paymentAttemptId))
+        .forUpdate()
+        .executeTakeFirstOrThrow();
       await transaction
         .updateTable('paymentProviderCalls')
         .set({
@@ -392,6 +466,15 @@ export class PaymentExecutionService {
         .set({ status: transactionStatus(status), updatedAt: completedAt })
         .where('id', '=', getResourceUuid(context.transactionId))
         .executeTakeFirstOrThrow();
+      if (previousAttempt.status !== status) {
+        await enqueuePaymentStateChange(
+          transaction,
+          context,
+          status,
+          context.providerReference,
+          providerError.code,
+        );
+      }
     });
 
     throw new PaymentExecutionError('provider_error', providerError.code);

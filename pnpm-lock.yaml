@@ -65,6 +65,10 @@ importers:
       uuid:
         specifier: 13.0.0
         version: 13.0.0
+    devDependencies:
+      '@aipay/worker':
+        specifier: workspace:*
+        version: link:../worker
 
   apps/web: {}
 
