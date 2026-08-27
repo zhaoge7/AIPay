@@ -46,6 +46,23 @@ export interface ServiceView {
   readonly updatedAt: string;
 }
 
+export interface CatalogServiceView extends ServiceView {
+  readonly merchantName: string;
+}
+
+export interface CatalogQuery {
+  readonly type?: ServiceType;
+  readonly category?: string;
+  readonly merchantId?: ResourceId<'mch'>;
+  readonly cursor?: ResourceId<'svc'>;
+  readonly limit?: number;
+}
+
+export interface CatalogPage {
+  readonly items: readonly Readonly<CatalogServiceView>[];
+  readonly nextCursor: ResourceId<'svc'> | null;
+}
+
 export interface CreateServiceInput {
   readonly type: ServiceType;
   readonly name: string;
@@ -77,6 +94,10 @@ interface ServiceRow {
   readonly status: 'enabled' | 'disabled';
   readonly createdAt: Date;
   readonly updatedAt: Date;
+}
+
+interface CatalogServiceRow extends ServiceRow {
+  readonly merchantName: string;
 }
 
 function hasControlCharacter(value: string): boolean {
@@ -152,6 +173,10 @@ function toView(row: ServiceRow): Readonly<ServiceView> {
     createdAt: formatUtcDateTime(row.createdAt),
     updatedAt: formatUtcDateTime(row.updatedAt),
   });
+}
+
+function toCatalogView(row: CatalogServiceRow): Readonly<CatalogServiceView> {
+  return Object.freeze({ ...toView(row), merchantName: row.merchantName });
 }
 
 const serviceColumns = [
@@ -315,5 +340,64 @@ export class ServiceCatalogService {
 
       throw error;
     }
+  }
+
+  async queryCatalog(filters: CatalogQuery): Promise<Readonly<CatalogPage>> {
+    const limit = filters.limit ?? 50;
+
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+      throw new ServiceError('invalid_catalog_value');
+    }
+
+    let query = this.#database
+      .selectFrom('services')
+      .innerJoin('merchants', 'merchants.id', 'services.merchantId')
+      .select([
+        'services.id as id',
+        'services.merchantId as merchantId',
+        'services.serviceType as serviceType',
+        'services.name as name',
+        'services.category as category',
+        'services.unit as unit',
+        'services.unitPriceAmountMinor as unitPriceAmountMinor',
+        'services.currency as currency',
+        'services.refundPolicy as refundPolicy',
+        'services.status as status',
+        'services.createdAt as createdAt',
+        'services.updatedAt as updatedAt',
+        'merchants.name as merchantName',
+      ])
+      .where('services.status', '=', 'enabled')
+      .where('merchants.status', '=', 'active');
+
+    if (filters.type !== undefined) {
+      query = query.where('services.serviceType', '=', filters.type);
+    }
+
+    if (filters.category !== undefined) {
+      query = query.where('services.category', '=', parseCatalogValue(filters.category));
+    }
+
+    if (filters.merchantId !== undefined) {
+      query = query.where('services.merchantId', '=', getResourceUuid(filters.merchantId));
+    }
+
+    if (filters.cursor !== undefined) {
+      query = query.where('services.id', '>', getResourceUuid(filters.cursor));
+    }
+
+    const rows = await query
+      .orderBy('services.id', 'asc')
+      .limit(limit + 1)
+      .execute();
+    const hasNextPage = rows.length > limit;
+    const pageRows = hasNextPage ? rows.slice(0, limit) : rows;
+    const lastRow = pageRows.at(-1);
+
+    return Object.freeze({
+      items: Object.freeze(pageRows.map(toCatalogView)),
+      nextCursor:
+        hasNextPage && lastRow !== undefined ? parseResourceId(`svc_${lastRow.id}`, 'svc') : null,
+    });
   }
 }

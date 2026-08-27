@@ -37,7 +37,7 @@ function toSignatureRequest(request: FastifyRequest) {
   const host = headers.host;
   const rawUrl = request.raw.url;
 
-  if (host === undefined || rawUrl === undefined || request.rawBody === undefined) {
+  if (host === undefined || rawUrl === undefined) {
     throw new AgentSignatureError('invalid_profile');
   }
 
@@ -45,7 +45,12 @@ function toSignatureRequest(request: FastifyRequest) {
     method: request.method,
     url: `${request.protocol}://${host}${rawUrl}`,
     headers,
-    body: typeof request.rawBody === 'string' ? request.rawBody : Buffer.from(request.rawBody),
+    body:
+      request.rawBody === undefined
+        ? Buffer.alloc(0)
+        : typeof request.rawBody === 'string'
+          ? request.rawBody
+          : Buffer.from(request.rawBody),
   };
 }
 
@@ -62,28 +67,14 @@ function sendSignatureError(reply: FastifyReply, traceId: string, error: AgentSi
 }
 
 export function registerAgentSignatureRoutes(app: FastifyInstance, database: Database): void {
-  const service = new AgentSignatureService(database);
+  const requireAgentSignature = createRequireAgentSignature(database);
 
   app.post<{ Body: VerifyBody }>(
     '/v1/agent/verify',
     {
       config: { rawBody: true },
       schema: { body: verifyBodySchema },
-      preHandler: async (request, reply) => {
-        const traceId = createTraceId();
-
-        try {
-          const verified = await service.verify(toSignatureRequest(request));
-          request.authenticatedAgentId = verified.agentId;
-          request.authenticatedSigningKeyId = verified.keyId;
-        } catch (error) {
-          if (error instanceof AgentSignatureError) {
-            return sendSignatureError(reply, traceId, error);
-          }
-
-          throw error;
-        }
-      },
+      preHandler: requireAgentSignature,
     },
     async (request, reply) => {
       if (request.authenticatedAgentId === null || request.authenticatedSigningKeyId === null) {
@@ -101,4 +92,24 @@ export function registerAgentSignatureRoutes(app: FastifyInstance, database: Dat
       );
     },
   );
+}
+
+export function createRequireAgentSignature(database: Database) {
+  const service = new AgentSignatureService(database);
+
+  return async (request: FastifyRequest, reply: FastifyReply) => {
+    const traceId = createTraceId();
+
+    try {
+      const verified = await service.verify(toSignatureRequest(request));
+      request.authenticatedAgentId = verified.agentId;
+      request.authenticatedSigningKeyId = verified.keyId;
+    } catch (error) {
+      if (error instanceof AgentSignatureError) {
+        return sendSignatureError(reply, traceId, error);
+      }
+
+      throw error;
+    }
+  };
 }
