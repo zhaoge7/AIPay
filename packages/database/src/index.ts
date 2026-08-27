@@ -226,6 +226,22 @@ export interface PaymentProviderCallTable {
   durationMs: number | null;
 }
 
+export interface OutboxEventTable {
+  id: Generated<string>;
+  aggregateType: string;
+  aggregateId: string;
+  eventType: string;
+  payload: unknown;
+  status: Generated<'pending' | 'processing' | 'published' | 'dead_letter'>;
+  availableAt: Generated<Date>;
+  publishedAt: Date | null;
+  attemptCount: Generated<number>;
+  lastErrorCode: string | null;
+  createdAt: Generated<Date>;
+  lockedAt: Date | null;
+  lockedBy: string | null;
+}
+
 export interface MandateAllowedMerchantTable {
   mandateId: string;
   merchantId: string;
@@ -254,6 +270,7 @@ export interface AIPayDatabase {
   paymentAttempts: PaymentAttemptTable;
   idempotencyRecords: IdempotencyRecordTable;
   paymentProviderCalls: PaymentProviderCallTable;
+  outboxEvents: OutboxEventTable;
 }
 
 export interface CreateDatabaseOptions {
@@ -277,3 +294,13 @@ export function createDatabase(
 
 export type Database = Kysely<AIPayDatabase>;
 export type DatabaseTransaction = Transaction<AIPayDatabase>;
+
+export {
+  claimOutboxEvents,
+  enqueueOutboxEvent,
+  markOutboxFailed,
+  markOutboxPublished,
+  releaseStaleOutboxClaims,
+  type ClaimedOutboxEvent,
+  type EnqueueOutboxInput,
+} from './outbox.js';

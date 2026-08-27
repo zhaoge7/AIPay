@@ -126,6 +126,8 @@ Reservation 终结固定为 released（payment_failed/cancelled）、expired（t
 
 每次 Payment Provider create/retry/query 都先写 `pcl_` started 账本，再在网络调用后记录 Provider status/reference、稳定错误和耗时；PaymentAttempt 只汇总当前状态。残留 started 代表可能的崩溃中调用，必须查询恢复，不能覆盖或静默删除。
 
+异步事件必须在业务 `DatabaseTransaction` 内调用 `enqueueOutboxEvent`；Dispatcher 用 `FOR UPDATE SKIP LOCKED` claim processing lease，支持 published、指数退避、dead_letter 和 stale lease 恢复。交付语义为 at-least-once，消费者必须按 `obx_` event ID 幂等。
+
 ## 环境变量
 
 本地开发从 `.env.example` 创建 `.env`。`.env` 已被 Git 忽略，不要在其中提交真实密钥、Token 或用户数据。
