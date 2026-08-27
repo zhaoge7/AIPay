@@ -242,6 +242,35 @@ export interface OutboxEventTable {
   lockedBy: string | null;
 }
 
+export interface WebhookDeliveryTable {
+  id: Generated<string>;
+  outboxEventId: string;
+  merchantId: string;
+  targetUrl: string;
+  status: Generated<'pending' | 'delivered' | 'dead_letter'>;
+  attemptCount: Generated<number>;
+  nextAttemptAt: Generated<Date>;
+  lastStatusCode: number | null;
+  lastErrorCode: string | null;
+  deliveredAt: Date | null;
+  createdAt: Generated<Date>;
+  updatedAt: Generated<Date>;
+}
+
+export interface WebhookDeliveryAttemptTable {
+  id: Generated<string>;
+  deliveryId: string;
+  attemptNumber: number;
+  requestDigest: Uint8Array;
+  signingKeyId: string;
+  outcome: Generated<'started' | 'delivered' | 'failed'>;
+  responseStatusCode: number | null;
+  errorCode: string | null;
+  startedAt: Date;
+  completedAt: Date | null;
+  durationMs: number | null;
+}
+
 export interface MandateAllowedMerchantTable {
   mandateId: string;
   merchantId: string;
@@ -271,6 +300,8 @@ export interface AIPayDatabase {
   idempotencyRecords: IdempotencyRecordTable;
   paymentProviderCalls: PaymentProviderCallTable;
   outboxEvents: OutboxEventTable;
+  webhookDeliveries: WebhookDeliveryTable;
+  webhookDeliveryAttempts: WebhookDeliveryAttemptTable;
 }
 
 export interface CreateDatabaseOptions {

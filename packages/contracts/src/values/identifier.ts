@@ -17,6 +17,8 @@ export const resourcePrefixes = [
   'rsv',
   'evt',
   'obx',
+  'whd',
+  'wha',
 ] as const;
 
 export type ResourcePrefix = (typeof resourcePrefixes)[number];

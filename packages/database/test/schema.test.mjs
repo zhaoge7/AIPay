@@ -32,6 +32,8 @@ const expectedTables = [
   'services',
   'signing_keys',
   'transactions',
+  'webhook_deliveries',
+  'webhook_delivery_attempts',
 ];
 
 async function assertQueryFails(client, query, constraintName) {

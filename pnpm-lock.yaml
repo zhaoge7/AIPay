@@ -73,6 +73,15 @@ importers:
       '@aipay/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@aipay/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@aipay/database':
+        specifier: workspace:*
+        version: link:../../packages/database
+      ipaddr.js:
+        specifier: 2.5.0
+        version: 2.5.0
 
   packages/config:
     dependencies:

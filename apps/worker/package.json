@@ -4,7 +4,16 @@
   "private": true,
   "description": "AIPay asynchronous worker",
   "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc --build",
+    "test": "pnpm run build && node --test --test-concurrency=1 test/**/*.test.mjs"
+  },
   "dependencies": {
-    "@aipay/config": "workspace:*"
+    "@aipay/config": "workspace:*",
+    "@aipay/contracts": "workspace:*",
+    "@aipay/database": "workspace:*",
+    "ipaddr.js": "2.5.0"
   }
 }

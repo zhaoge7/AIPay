@@ -128,6 +128,8 @@ Reservation 终结固定为 released（payment_failed/cancelled）、expired（t
 
 异步事件必须在业务 `DatabaseTransaction` 内调用 `enqueueOutboxEvent`；Dispatcher 用 `FOR UPDATE SKIP LOCKED` claim processing lease，支持 published、指数退避、dead_letter 和 stale lease 恢复。交付语义为 at-least-once，消费者必须按 `obx_` event ID 幂等。
 
+商户 Webhook 使用系统 Ed25519 密钥签署原始 JSON body，固定发送 `x-aipay-event-id`、`x-aipay-key-id`、`x-aipay-timestamp` 和 `x-aipay-signature`；接收方必须在解析 JSON 前按原始字节验签，并按 `obx_` event ID 去重。每个事件保留 `whd_` 投递及逐次 `wha_` 尝试，HTTP 状态、稳定错误、耗时、退避和 dead_letter 均可查询。出站传输在每次连接前解析 DNS，只接受公网单播地址、固定连接解析后的 IP、保留原 Host/TLS SNI 且不跟随重定向；明文 HTTP 仅可通过显式开发选项访问纯回环地址。
+
 ## 环境变量
 
 本地开发从 `.env.example` 创建 `.env`。`.env` 已被 Git 忽略，不要在其中提交真实密钥、Token 或用户数据。
