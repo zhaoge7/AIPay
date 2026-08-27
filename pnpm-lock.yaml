@@ -104,7 +104,11 @@ importers:
 
   packages/payment: {}
 
-  packages/policy: {}
+  packages/policy:
+    dependencies:
+      '@aipay/contracts':
+        specifier: workspace:*
+        version: link:../contracts
 
   packages/sdk-ts: {}
 

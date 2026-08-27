@@ -2,5 +2,15 @@
   "name": "@aipay/policy",
   "version": "0.0.0",
   "private": true,
-  "description": "AIPay deterministic authorization policy"
+  "description": "AIPay deterministic authorization policy",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc --build",
+    "test": "pnpm run build && node --test test/**/*.test.mjs"
+  },
+  "dependencies": {
+    "@aipay/contracts": "workspace:*"
+  }
 }
