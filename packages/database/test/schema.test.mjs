@@ -29,6 +29,7 @@ const expectedTables = [
   'payment_provider_calls',
   'provider_webhook_events',
   'quotes',
+  'refund_provider_calls',
   'refunds',
   'services',
   'signing_keys',

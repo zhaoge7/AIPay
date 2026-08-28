@@ -7,6 +7,7 @@ import { createMoney, formatUtcDateTime, type UtcDateTime } from '@aipay/contrac
 import {
   PaymentProviderError,
   type CreatePaymentRequest,
+  type CreateRefundRequest,
   type PaymentProvider,
   type ProviderPaymentResult,
   type ProviderRefundResult,
@@ -14,6 +15,7 @@ import {
   type ProviderWebhookEvent,
   type ProviderWebhookRequest,
   type QueryPaymentRequest,
+  type QueryRefundRequest,
 } from './index.js';
 
 const officialGateways = new Set([
@@ -100,14 +102,6 @@ function regexGroup(match: RegExpExecArray, index: number, errorCode: string): s
   return value;
 }
 
-function unavailable(operation: string): PaymentProviderError {
-  return new PaymentProviderError({
-    provider: 'alipay_web',
-    kind: 'fatal',
-    code: `${operation}_NOT_AVAILABLE`,
-  });
-}
-
 function channelError(
   kind: 'retryable' | 'declined' | 'invalid_request' | 'fatal',
   code: string,
@@ -137,7 +131,7 @@ function mapAlipayGatewayFailure(code: string | null, subCode: string | null) {
   return channelError('fatal', 'CHANNEL_REJECTED');
 }
 
-function mapSdkFailure(error: unknown, operation: 'create' | 'query') {
+function mapSdkFailure(error: unknown, operation: 'page' | 'query' | 'refund') {
   if (error instanceof PaymentProviderError) {
     return error;
   }
@@ -150,7 +144,7 @@ function mapSdkFailure(error: unknown, operation: 'create' | 'query') {
     return channelError('fatal', 'CHANNEL_RESPONSE_INVALID');
   }
 
-  return operation === 'query'
+  return operation === 'query' || operation === 'refund'
     ? channelError('retryable', 'CHANNEL_UNAVAILABLE')
     : channelError('fatal', 'CHANNEL_CONFIGURATION_ERROR');
 }
@@ -161,6 +155,30 @@ function outTradeNo(paymentAttemptId: string): string {
 
 function providerPaymentId(outTradeNumber: string): string {
   return `alipay_out_${outTradeNumber}`;
+}
+
+function refundRequestNo(refundId: string): string {
+  return `AIPAYRF${refundId.slice(4).replaceAll('-', '').toUpperCase()}`;
+}
+
+function providerRefundId(requestNumber: string): string {
+  return `alipay_refund_${requestNumber}`;
+}
+
+function refundRequestNoFromProviderId(value: string): string {
+  const prefix = 'alipay_refund_';
+
+  if (!value.startsWith(prefix)) {
+    throw channelError('invalid_request', 'INVALID_PROVIDER_REFERENCE');
+  }
+
+  const requestNumber = value.slice(prefix.length);
+
+  if (!/^AIPAYRF[0-9A-F]{32}$/u.test(requestNumber)) {
+    throw channelError('invalid_request', 'INVALID_PROVIDER_REFERENCE');
+  }
+
+  return requestNumber;
 }
 
 function outTradeNoFromProviderId(value: string): string {
@@ -374,7 +392,7 @@ export class AlipayWebPaymentProvider implements PaymentProvider {
   readonly name = 'alipay_web';
   readonly capabilities = Object.freeze({
     supportsActiveQuery: true,
-    supportsRefunds: false,
+    supportsRefunds: true,
     supportsWebhookSignatures: true,
   });
   readonly #client: AlipayClientPort;
@@ -425,7 +443,7 @@ export class AlipayWebPaymentProvider implements PaymentProvider {
         },
       });
     } catch (error) {
-      throw mapSdkFailure(error, 'create');
+      throw mapSdkFailure(error, 'page');
     }
 
     let target: URL;
@@ -502,14 +520,99 @@ export class AlipayWebPaymentProvider implements PaymentProvider {
     });
   }
 
-  async createRefund(): Promise<Readonly<ProviderRefundResult>> {
-    await Promise.resolve();
-    throw unavailable('CREATE_REFUND');
+  async createRefund(request: CreateRefundRequest): Promise<Readonly<ProviderRefundResult>> {
+    assertCnyCurrency(request.amount.currency);
+    const orderNumber = outTradeNoFromProviderId(request.providerPaymentId);
+    const requestNumber = refundRequestNo(request.refundId);
+    const expectedAmount = amountInYuan(request.amount.amountMinor);
+    let response: Readonly<Record<string, unknown>>;
+
+    try {
+      response = await this.#client.exec(
+        'alipay.trade.refund',
+        {
+          bizContent: {
+            outTradeNo: orderNumber,
+            refundAmount: expectedAmount,
+            refundReason: subject(request.reason),
+            outRequestNo: requestNumber,
+          },
+        },
+        { validateSign: true },
+      );
+    } catch (error) {
+      throw mapSdkFailure(error, 'refund');
+    }
+
+    const code = responseString(response, 'code');
+    const subCode = responseString(response, 'subCode');
+
+    if (code !== '10000') {
+      throw mapAlipayGatewayFailure(code, subCode);
+    }
+
+    if (
+      responseString(response, 'outTradeNo') !== orderNumber ||
+      responseString(response, 'refundFee') !== expectedAmount
+    ) {
+      throw channelError('fatal', 'CHANNEL_RESPONSE_INVALID');
+    }
+
+    const succeeded = responseString(response, 'fundChange') === 'Y';
+    return Object.freeze({
+      providerRefundId: providerRefundId(requestNumber),
+      status: succeeded ? 'succeeded' : 'unknown',
+      occurredAt: formatUtcDateTime(this.#now()),
+      failureCode: succeeded ? null : 'REFUND_STATUS_UNKNOWN',
+    });
   }
 
-  async queryRefund(): Promise<Readonly<ProviderRefundResult>> {
-    await Promise.resolve();
-    throw unavailable('QUERY_REFUND');
+  async queryRefund(request: QueryRefundRequest): Promise<Readonly<ProviderRefundResult>> {
+    assertCnyCurrency(request.amount.currency);
+    const orderNumber = outTradeNoFromProviderId(request.providerPaymentId);
+    const requestNumber = refundRequestNoFromProviderId(request.providerRefundId);
+
+    if (requestNumber !== refundRequestNo(request.refundId)) {
+      throw channelError('invalid_request', 'INVALID_PROVIDER_REFERENCE');
+    }
+
+    const expectedAmount = amountInYuan(request.amount.amountMinor);
+    let response: Readonly<Record<string, unknown>>;
+
+    try {
+      response = await this.#client.exec(
+        'alipay.trade.fastpay.refund.query',
+        { bizContent: { outTradeNo: orderNumber, outRequestNo: requestNumber } },
+        { validateSign: true },
+      );
+    } catch (error) {
+      throw mapSdkFailure(error, 'query');
+    }
+
+    const code = responseString(response, 'code');
+    const subCode = responseString(response, 'subCode');
+
+    if (code !== '10000') {
+      throw mapAlipayGatewayFailure(code, subCode);
+    }
+
+    const responseAmount = responseString(response, 'refundAmount');
+
+    if (
+      responseString(response, 'outTradeNo') !== orderNumber ||
+      responseString(response, 'outRequestNo') !== requestNumber ||
+      (responseAmount !== null && responseAmount !== expectedAmount)
+    ) {
+      throw channelError('fatal', 'CHANNEL_RESPONSE_INVALID');
+    }
+
+    const succeeded = responseString(response, 'refundStatus') === 'REFUND_SUCCESS';
+    return Object.freeze({
+      providerRefundId: request.providerRefundId,
+      status: succeeded ? 'succeeded' : 'failed',
+      occurredAt: formatUtcDateTime(this.#now()),
+      failureCode: succeeded ? null : 'REFUND_NOT_EXECUTED',
+    });
   }
 
   async verifyWebhook(request: ProviderWebhookRequest): Promise<ProviderWebhookEvent> {

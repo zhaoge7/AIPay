@@ -135,7 +135,7 @@ test('advertises only implemented capabilities until later P6 tasks', () => {
   const alipay = provider();
   assert.deepEqual(alipay.capabilities, {
     supportsActiveQuery: true,
-    supportsRefunds: false,
+    supportsRefunds: true,
     supportsWebhookSignatures: true,
   });
   assert.equal(alipay.acknowledgeWebhook({ eventId: 'verified' }).body, 'success');
@@ -280,6 +280,127 @@ test('maps local page-pay SDK failures without exposing key or vendor details', 
       error.kind === 'fatal' &&
       error.code === 'CHANNEL_CONFIGURATION_ERROR' &&
       !error.message.includes('private key'),
+  );
+});
+
+const refundRequest = {
+  refundId: 'rfd_01890f3e-b102-7cc2-b8c5-7f6a1b2c3d4e',
+  transactionId: request.transactionId,
+  providerPaymentId: queryRequest.providerPaymentId,
+  amount: request.amount,
+  idempotencyKey: 'alipay-refund-key',
+  reason: 'delivery / failed & full = refund',
+};
+const refundRequestNumber = 'AIPAYRF01890F3EB1027CC2B8C57F6A1B2C3D4E';
+const alipayRefundId = `alipay_refund_${refundRequestNumber}`;
+
+test('creates one full Alipay refund with a stable request number', async () => {
+  const calls = [];
+  const { alipay } = fixture(
+    clientReturning(
+      {
+        code: '10000',
+        outTradeNo: 'AIPAY01890F3EB1017CC2A8C57F6A1B2C3D4E',
+        tradeNo: '2026082822001234567890123456',
+        refundFee: '12.34',
+        fundChange: 'Y',
+      },
+      calls,
+    ),
+  );
+  const first = await alipay.createRefund(refundRequest);
+  const repeated = await alipay.createRefund(refundRequest);
+
+  assert.deepEqual(first, {
+    providerRefundId: alipayRefundId,
+    status: 'succeeded',
+    occurredAt: '2026-08-28T08:00:00.000Z',
+    failureCode: null,
+  });
+  assert.equal(repeated.providerRefundId, first.providerRefundId);
+  assert.equal(calls.length, 2);
+  assert.deepEqual(calls[0], {
+    method: 'alipay.trade.refund',
+    parameters: {
+      bizContent: {
+        outTradeNo: 'AIPAY01890F3EB1017CC2A8C57F6A1B2C3D4E',
+        refundAmount: '12.34',
+        refundReason: 'delivery failed full refund',
+        outRequestNo: refundRequestNumber,
+      },
+    },
+    options: { validateSign: true },
+  });
+});
+
+test('queries unknown Alipay refunds and binds the final result', async () => {
+  const unknown = fixture(
+    clientReturning({
+      code: '10000',
+      outTradeNo: 'AIPAY01890F3EB1017CC2A8C57F6A1B2C3D4E',
+      refundFee: '12.34',
+      fundChange: 'N',
+    }),
+  ).alipay;
+  assert.equal((await unknown.createRefund(refundRequest)).status, 'unknown');
+
+  const query = {
+    refundId: refundRequest.refundId,
+    providerRefundId: alipayRefundId,
+    transactionId: refundRequest.transactionId,
+    providerPaymentId: refundRequest.providerPaymentId,
+    amount: refundRequest.amount,
+  };
+  const recovered = fixture(
+    clientReturning({
+      code: '10000',
+      outTradeNo: 'AIPAY01890F3EB1017CC2A8C57F6A1B2C3D4E',
+      outRequestNo: refundRequestNumber,
+      refundAmount: '12.34',
+      refundStatus: 'REFUND_SUCCESS',
+    }),
+  ).alipay;
+  assert.deepEqual(await recovered.queryRefund(query), {
+    providerRefundId: alipayRefundId,
+    status: 'succeeded',
+    occurredAt: '2026-08-28T08:00:00.000Z',
+    failureCode: null,
+  });
+
+  const notExecuted = fixture(
+    clientReturning({
+      code: '10000',
+      outTradeNo: 'AIPAY01890F3EB1017CC2A8C57F6A1B2C3D4E',
+      outRequestNo: refundRequestNumber,
+      refundAmount: '12.34',
+    }),
+  ).alipay;
+  const failed = await notExecuted.queryRefund(query);
+  assert.equal(failed.status, 'failed');
+  assert.equal(failed.failureCode, 'REFUND_NOT_EXECUTED');
+});
+
+test('rejects mismatched Alipay refund responses and references', async () => {
+  await assert.rejects(
+    fixture(
+      clientReturning({
+        code: '10000',
+        outTradeNo: 'AIPAY01890F3EB1017CC2A8C57F6A1B2C3D4E',
+        refundFee: '12.35',
+        fundChange: 'Y',
+      }),
+    ).alipay.createRefund(refundRequest),
+    (error) => error instanceof PaymentProviderError && error.code === 'CHANNEL_RESPONSE_INVALID',
+  );
+  await assert.rejects(
+    fixture(clientReturning({ code: '10000' })).alipay.queryRefund({
+      refundId: refundRequest.refundId,
+      providerRefundId: 'alipay_refund_AIPAYRF01890F3EB9997CC2B8C57F6A1B2C3D4E',
+      transactionId: refundRequest.transactionId,
+      providerPaymentId: refundRequest.providerPaymentId,
+      amount: refundRequest.amount,
+    }),
+    (error) => error instanceof PaymentProviderError && error.code === 'INVALID_PROVIDER_REFERENCE',
   );
 });
 

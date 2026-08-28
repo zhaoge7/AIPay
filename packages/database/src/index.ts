@@ -241,6 +241,34 @@ export interface ProviderWebhookEventTable {
   createdAt: Generated<Date>;
 }
 
+export interface RefundTable {
+  id: Generated<string>;
+  transactionId: string;
+  paymentAttemptId: string;
+  currency: Generated<'CNY'>;
+  amountMinor: string;
+  status: 'pending' | 'succeeded' | 'failed' | 'unknown';
+  providerReference: string | null;
+  errorCode: string | null;
+  createdAt: Generated<Date>;
+  updatedAt: Generated<Date>;
+}
+
+export interface RefundProviderCallTable {
+  id: Generated<string>;
+  refundId: string;
+  operation: 'refund.create' | 'refund.query';
+  requestDigest: Uint8Array;
+  outcome: Generated<'started' | 'succeeded' | 'failed'>;
+  providerStatus: 'pending' | 'succeeded' | 'failed' | 'unknown' | null;
+  providerReference: string | null;
+  errorKind: string | null;
+  errorCode: string | null;
+  startedAt: Generated<Date>;
+  completedAt: Date | null;
+  durationMs: number | null;
+}
+
 export interface OutboxEventTable {
   id: Generated<string>;
   aggregateType: string;
@@ -315,6 +343,8 @@ export interface AIPayDatabase {
   idempotencyRecords: IdempotencyRecordTable;
   paymentProviderCalls: PaymentProviderCallTable;
   providerWebhookEvents: ProviderWebhookEventTable;
+  refunds: RefundTable;
+  refundProviderCalls: RefundProviderCallTable;
   outboxEvents: OutboxEventTable;
   webhookDeliveries: WebhookDeliveryTable;
   webhookDeliveryAttempts: WebhookDeliveryAttemptTable;

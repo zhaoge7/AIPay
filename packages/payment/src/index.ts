@@ -52,6 +52,9 @@ export interface CreateRefundRequest {
 export interface QueryRefundRequest {
   readonly refundId: ResourceId<'rfd'>;
   readonly providerRefundId: string;
+  readonly transactionId: ResourceId<'txn'>;
+  readonly providerPaymentId: string;
+  readonly amount: Readonly<Money>;
 }
 
 export interface ProviderRefundResult {

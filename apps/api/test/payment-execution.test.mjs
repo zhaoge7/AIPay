@@ -8,6 +8,7 @@ import { createDatabase } from '@aipay/database';
 import { AlipayWebPaymentProvider, FakePaymentProvider } from '@aipay/payment';
 
 import { PaymentExecutionError, PaymentExecutionService } from '../dist/payments/execution.js';
+import { RefundExecutionError, RefundExecutionService } from '../dist/payments/refunds.js';
 import { runMigrations } from '../../../packages/database/scripts/migration-runner.mjs';
 import {
   removePostgresContainer,
@@ -208,11 +209,26 @@ test('records every Provider create/retry/query call and its result', async (con
     async exec(method, parameters, options) {
       alipayClientCalls.push({ method, parameters, options });
 
-      if (failAlipayQuery) {
+      if (method === 'alipay.trade.query' && failAlipayQuery) {
         throw new Error('simulated query outage');
       }
 
       const outTradeNo = parameters.bizContent.outTradeNo;
+
+      if (method === 'alipay.trade.refund') {
+        return { code: '10000', outTradeNo, refundFee: '2.00', fundChange: 'N' };
+      }
+
+      if (method === 'alipay.trade.fastpay.refund.query') {
+        return {
+          code: '10000',
+          outTradeNo,
+          outRequestNo: parameters.bizContent.outRequestNo,
+          refundAmount: '2.00',
+          refundStatus: 'REFUND_SUCCESS',
+        };
+      }
+
       return {
         code: '10000',
         outTradeNo,
@@ -342,4 +358,82 @@ test('records every Provider create/retry/query call and its result', async (con
     .where('aggregateId', '=', alipayTransaction.slice(4))
     .executeTakeFirstOrThrow();
   assert.equal(Number(alipayOutbox.count), 1);
+
+  const refundExecution = new RefundExecutionService(database);
+  const unknownRefund = await refundExecution.create(alipayTransaction, alipay);
+  assert.equal(unknownRefund.status, 'unknown');
+  assert.deepEqual(unknownRefund.amount, { currency: 'CNY', amountMinor: '200' });
+  assert.match(unknownRefund.providerReference, /^alipay_refund_AIPAYRF/u);
+  const recoveredRefund = await refundExecution.query(unknownRefund.refundId, alipay);
+  assert.equal(recoveredRefund.status, 'succeeded');
+  assert.equal(recoveredRefund.providerReference, unknownRefund.providerReference);
+  assert.deepEqual(await refundExecution.create(alipayTransaction, alipay), recoveredRefund);
+
+  const finalRefundState = await database
+    .selectFrom('transactions')
+    .innerJoin('refunds', 'refunds.transactionId', 'transactions.id')
+    .select([
+      'transactions.status as transactionStatus',
+      'transactions.amountMinor as transactionAmount',
+      'refunds.status as refundStatus',
+      'refunds.amountMinor as refundAmount',
+      'refunds.providerReference',
+    ])
+    .where('transactions.id', '=', alipayTransaction.slice(4))
+    .executeTakeFirstOrThrow();
+  assert.deepEqual(finalRefundState, {
+    transactionStatus: 'refunded',
+    transactionAmount: '200',
+    refundStatus: 'succeeded',
+    refundAmount: '200',
+    providerReference: unknownRefund.providerReference,
+  });
+  const refundCalls = await database
+    .selectFrom('refundProviderCalls')
+    .select(['operation', 'outcome', 'providerStatus', 'providerReference'])
+    .orderBy('startedAt', 'asc')
+    .execute();
+  assert.deepEqual(refundCalls, [
+    {
+      operation: 'refund.create',
+      outcome: 'succeeded',
+      providerStatus: 'unknown',
+      providerReference: unknownRefund.providerReference,
+    },
+    {
+      operation: 'refund.query',
+      outcome: 'succeeded',
+      providerStatus: 'succeeded',
+      providerReference: unknownRefund.providerReference,
+    },
+  ]);
+  const finalAlipayOutbox = await database
+    .selectFrom('outboxEvents')
+    .select(['eventType', 'payload'])
+    .where('aggregateId', '=', alipayTransaction.slice(4))
+    .orderBy('createdAt', 'asc')
+    .execute();
+  assert.deepEqual(
+    finalAlipayOutbox.map(({ eventType }) => eventType),
+    ['transaction.paid', 'transaction.refund_review', 'transaction.refunded'],
+  );
+  assert.equal(finalAlipayOutbox.at(-1).payload.refundId, recoveredRefund.refundId);
+
+  await database
+    .updateTable('services')
+    .set({ refundPolicy: 'non_refundable', updatedAt: new Date() })
+    .where('id', '=', catalogService.id)
+    .executeTakeFirstOrThrow();
+  const nonRefundableTransaction = await transaction(58);
+  provider.enqueuePaymentOutcome('succeeded');
+  await execution.create(nonRefundableTransaction, provider);
+  await assert.rejects(
+    refundExecution.create(nonRefundableTransaction, provider),
+    (error) => error instanceof RefundExecutionError && error.code === 'invalid_state',
+  );
+  const refundCount = await database
+    .selectFrom('refunds')
+    .select(({ fn }) => fn.countAll().as('count'))
+    .executeTakeFirstOrThrow();
+  assert.equal(Number(refundCount.count), 1);
 });

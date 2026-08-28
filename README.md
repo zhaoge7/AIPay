@@ -144,6 +144,8 @@ PaymentAttempt 首次进入 succeeded、failed 或 unknown 时，Transaction 状
 
 支付宝外部错误不得穿透核心。适配器只输出稳定码：`CHANNEL_UNAVAILABLE`（可重试系统/网络故障）、`PAYMENT_DECLINED`（余额/限额/风控等用户拒绝）、`INVALID_CHANNEL_REQUEST`（参数/金额）、`CHANNEL_CONFIGURATION_ERROR`（权限/APP_ID/签约/密钥）、`CHANNEL_RESPONSE_INVALID`（验签或订单金额错绑）、`CHANNEL_REJECTED`（未知非重试拒绝）和 `INVALID_PROVIDER_REFERENCE`。供应商 `code/sub_code/sub_msg` 与 SDK 文案不写数据库、不返回客户端。
 
+V1 退款只允许 `full_on_delivery_failure` 服务对 paid/delivery_review/delivered 交易执行一次全额退款；Refund 通过复合外键绑定原 Transaction 金额和 succeeded PaymentAttempt。`rfd_` 稳定派生支付宝 `out_request_no`，create 的 `fund_change=Y` 才算成功，N/缺失进入 refund_review 并调用 `alipay.trade.fastpay.refund.query`，仅 `REFUND_SUCCESS` 恢复成功。每次 create/query 写独立 `refund_provider_calls`，Refund/Transaction/商户 Outbox 同事务；重复 create 返回同一 rfd_，不执行第二次退款。
+
 当前沙箱只验证单一自营测试商户。生产多商户模式必须由实际收款商户完成产品签约，并通过服务商应用授权 `app_auth_token` 代调用；AIPay 不使用一个自有商户号代收第三方资金。支付宝 [AI 按量付费](https://aipay.alipay.com/docs/ai-receive/MACHINE_PAY.html) 与 API/MCP/Skill 最匹配，但它属于 402 `Payment-Needed`/`Payment-Proof` 协议，将在 Payment Proof 与 SDK 阶段接入，不替代本阶段的 Provider 适配器。
 
 ## 环境变量
