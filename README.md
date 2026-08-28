@@ -150,6 +150,8 @@ V1 退款只允许 `full_on_delivery_failure` 服务对 paid/delivery_review/del
 
 `ReconciliationService` 按 Provider + UTC business date 创建唯一每日 run，主动查询所有已有外部引用的 PaymentAttempt 与 Refund，并复用生产 QueryObserved/调用账本。内部 pending/unknown 与通道明确终态差异可自动修复；已 succeeded/failed 与通道冲突只记录 manual_review，绝不回退资金终态；查询错误记录 query_failed。run/items 保存内部前后状态、通道观察、resolution 和稳定错误码，completed 同日重跑直接返回原 run，不重复调用通道。
 
+开发者通过 `GET /v1/transactions/:transactionId/timeline` 获取权威只读时间线。投影直接来自 Mandate、Quote、Transaction、PaymentAttempt、每次 Payment/Refund Provider call、Payment Proof、Delivery、Refund、Outbox 和 Reconciliation item，按 occurredAt + eventId 稳定排序；每项只有固定 phase/type/object/time/status/provider/operation/errorCode，不返回 Provider 原文或自由 metadata。Principal owner 与 Merchant owner 可读，其他开发者统一拒绝。
+
 当前沙箱只验证单一自营测试商户。生产多商户模式必须由实际收款商户完成产品签约，并通过服务商应用授权 `app_auth_token` 代调用；AIPay 不使用一个自有商户号代收第三方资金。支付宝 [AI 按量付费](https://aipay.alipay.com/docs/ai-receive/MACHINE_PAY.html) 与 API/MCP/Skill 最匹配，但它属于 402 `Payment-Needed`/`Payment-Proof` 协议，将在 Payment Proof 与 SDK 阶段接入，不替代本阶段的 Provider 适配器。
 
 ## Payment Proof V1

@@ -644,4 +644,89 @@ test('issues, verifies and consumes a Payment Proof exactly once with bound reso
     .where('id', '=', expiringProof.paymentProofId.slice(4))
     .executeTakeFirstOrThrow();
   assert.equal(expiredRow.status, 'expired');
+
+  await database
+    .insertInto('paymentProviderCalls')
+    .values({
+      paymentAttemptId: failedTransaction.attemptId,
+      operation: 'payment.query',
+      requestDigest: createHash('sha256').update('timeline-payment-call').digest(),
+      outcome: 'succeeded',
+      providerStatus: 'succeeded',
+      providerReference: `fake_proof_${String(97)}`,
+      errorKind: null,
+      errorCode: null,
+      completedAt: now,
+      durationMs: 1,
+    })
+    .execute();
+  const reconciliationRun = await database
+    .insertInto('reconciliationRuns')
+    .values({
+      provider: 'fake',
+      businessDate: now.toISOString().slice(0, 10),
+      status: 'completed',
+      checkedCount: 1,
+      discrepancyCount: 0,
+      repairedCount: 0,
+      errorCode: null,
+      completedAt: now,
+    })
+    .returning('id')
+    .executeTakeFirstOrThrow();
+  await database
+    .insertInto('reconciliationItems')
+    .values({
+      runId: reconciliationRun.id,
+      entityType: 'refund',
+      entityId: retriedRefund.refundId.slice(4),
+      internalStatusBefore: 'succeeded',
+      providerStatus: 'succeeded',
+      internalStatusAfter: 'succeeded',
+      resolution: 'consistent',
+      errorCode: null,
+    })
+    .execute();
+  const timelineResponse = await app.inject({
+    method: 'GET',
+    url: `/v1/transactions/${failedProof.transactionId}/timeline`,
+    headers: { cookie: owner.cookie },
+  });
+  assert.equal(timelineResponse.statusCode, 200);
+  const timeline = body(timelineResponse).data;
+  assert.equal(timeline.transaction.transactionId, failedProof.transactionId);
+  assert.equal(timeline.transaction.status, 'refunded');
+  assert.deepEqual([...new Set(timeline.events.map(({ phase }) => phase))].sort(), [
+    'authorization',
+    'delivery',
+    'notification',
+    'payment',
+    'quote',
+    'reconciliation',
+    'refund',
+    'transaction',
+  ]);
+  assert.equal(
+    timeline.events.some(({ eventType }) => eventType === 'payment.provider_call'),
+    true,
+  );
+  assert.equal(
+    timeline.events.some(({ eventType }) => eventType === 'refund.provider_call'),
+    true,
+  );
+  assert.equal(
+    timeline.events.some(({ eventType }) => eventType === 'transaction.delivery_failed'),
+    true,
+  );
+  assert.deepEqual(
+    timeline.events.map(({ occurredAt }) => occurredAt),
+    timeline.events.map(({ occurredAt }) => occurredAt).sort(),
+  );
+  assert.equal(JSON.stringify(timeline).includes('timeline-payment-call'), false);
+  const deniedTimeline = await app.inject({
+    method: 'GET',
+    url: `/v1/transactions/${failedProof.transactionId}/timeline`,
+    headers: { cookie: other.cookie },
+  });
+  assert.equal(deniedTimeline.statusCode, 403);
 });

@@ -52,4 +52,5 @@ export { PaymentProofError, PaymentProofIssuer } from './payments/proofs.js';
 export { DeliveryReceiptError, DeliveryReceiptService } from './deliveries/receipts.js';
 export { DeliveryTimeoutService } from './deliveries/timeouts.js';
 export { ReconciliationService } from './reconciliation/service.js';
+export { TimelineError, TransactionTimelineService } from './timeline/service.js';
 export { ARGON2ID_OPTIONS, hashPassword, verifyPassword } from './auth/password.js';
