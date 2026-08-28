@@ -348,7 +348,13 @@ export class PaymentProofIssuer {
     developerId: ResourceId<'dev'>,
     merchantId: ResourceId<'mch'>,
     value: unknown,
-  ): Promise<Readonly<{ paymentProofId: ResourceId<'ppf'>; consumedAt: string }>> {
+  ): Promise<
+    Readonly<{
+      paymentProofId: ResourceId<'ppf'>;
+      deliveryId: ResourceId<'dlv'>;
+      consumedAt: string;
+    }>
+  > {
     const paymentProof = await this.#verifySignature(value);
     const now = this.#now();
     const outcome = await this.#database.transaction().execute(async (transaction) => {
@@ -412,6 +418,24 @@ export class PaymentProofIssuer {
         .set({ status: 'consumed', consumedAt: now })
         .where('id', '=', row.id)
         .executeTakeFirstOrThrow();
+      const delivery = await transaction
+        .insertInto('deliveries')
+        .values({
+          transactionId: row.transactionId,
+          paymentProofId: row.id,
+          merchantId: row.merchantId,
+          serviceId: row.serviceId,
+          status: 'pending',
+          resultDigest: null,
+          deliveredAt: null,
+          errorCode: null,
+          proofScheme: null,
+          proofKeyId: null,
+          proofValue: null,
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow();
+      const deliveryId = parseResourceId(`dlv_${delivery.id}`, 'dlv');
       await transaction
         .updateTable('transactions')
         .set({ status: 'delivery_pending', updatedAt: now })
@@ -425,10 +449,11 @@ export class PaymentProofIssuer {
           merchantId,
           transactionId: paymentProof.transactionId,
           paymentProofId: paymentProof.paymentProofId,
+          deliveryId,
           serviceId: paymentProof.serviceId,
         },
       });
-      return Object.freeze({ consumedAt: formatUtcDateTime(now) });
+      return Object.freeze({ deliveryId, consumedAt: formatUtcDateTime(now) });
     });
 
     if ('error' in outcome) {

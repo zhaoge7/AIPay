@@ -211,11 +211,26 @@ test('creates the complete core schema and enforces Contract bindings', async (c
     [transactionId],
   );
   const attemptId = attempt.rows[0].id;
+  const paymentProof = await client.query(
+    `INSERT INTO aipay.payment_proofs
+      (id, transaction_id, payment_attempt_id, merchant_id, service_id,
+       amount_minor, issued_at, expires_at, proof_key_id, proof_value,
+       status, consumed_at)
+      VALUES (uuidv7(), $1, $2, $3, $4, 600, CURRENT_TIMESTAMP,
+        CURRENT_TIMESTAMP + INTERVAL '5 minutes', $5,
+        decode(repeat('06', 64), 'hex'), 'consumed', CURRENT_TIMESTAMP)
+      RETURNING id`,
+    [transactionId, attemptId, merchantId, serviceId, signingKeyId],
+  );
+  const paymentProofId = paymentProof.rows[0].id;
   await client.query(
     `INSERT INTO aipay.deliveries
-      (transaction_id, status, result_digest, delivered_at)
-      VALUES ($1, 'succeeded', decode(repeat('05', 32), 'hex'), CURRENT_TIMESTAMP)`,
-    [transactionId],
+      (transaction_id, payment_proof_id, merchant_id, service_id, status,
+       result_digest, delivered_at, proof_scheme, proof_key_id, proof_value)
+      VALUES ($1, $2, $3, $4, 'succeeded', decode(repeat('05', 32), 'hex'),
+        CURRENT_TIMESTAMP, 'aipay-jcs-ed25519-v1', $5,
+        decode(repeat('07', 64), 'hex'))`,
+    [transactionId, paymentProofId, merchantId, serviceId, signingKeyId],
   );
 
   await assertQueryFails(

@@ -36,7 +36,13 @@ export class ContractValidationError extends Error {
 
   constructor(
     contractName:
-      'Mandate' | 'Quote' | 'PaymentProof' | 'Transaction' | 'ApiProblem' | 'AuditEvent',
+      | 'Mandate'
+      | 'Quote'
+      | 'PaymentProof'
+      | 'DeliveryReceipt'
+      | 'Transaction'
+      | 'ApiProblem'
+      | 'AuditEvent',
     issues: readonly ContractValidationIssue[],
   ) {
     super(`Invalid ${contractName} contract`);

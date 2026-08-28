@@ -81,6 +81,21 @@ export {
 } from './payment-proof.js';
 
 export {
+  DELIVERY_RECEIPT_SIGNATURE_DOMAIN,
+  DeliveryReceiptWireSchema,
+  canonicalizeDeliveryReceiptSigningPayload,
+  getDeliveryReceiptJsonSchema,
+  getDeliveryReceiptSigningPayload,
+  parseDeliveryReceipt,
+  toDeliveryReceiptWire,
+  type DeliveryReceipt,
+  type DeliveryReceiptProof,
+  type DeliveryReceiptSigningPayload,
+  type DeliveryReceiptWire,
+  type DeliveryResultDigest,
+} from './delivery-receipt.js';
+
+export {
   TransactionWireSchema,
   assertTransactionBindings,
   getTransactionJsonSchema,

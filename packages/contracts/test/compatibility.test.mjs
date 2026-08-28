@@ -8,17 +8,20 @@ import {
   ContractValidationError,
   getApiProblemJsonSchema,
   getAuditEventJsonSchema,
+  getDeliveryReceiptJsonSchema,
   getMandateJsonSchema,
   getPaymentProofJsonSchema,
   getQuoteJsonSchema,
   getTransactionJsonSchema,
   parseApiProblem,
   parseAuditEvent,
+  parseDeliveryReceipt,
   parseMandate,
   parsePaymentProof,
   parseQuote,
   parseTransaction,
   toAuditEventWire,
+  toDeliveryReceiptWire,
   toMandateWire,
   toPaymentProofWire,
   toQuoteWire,
@@ -32,6 +35,7 @@ async function readFixture(name) {
 }
 
 const versionedContracts = [
+  ['delivery-receipt.json', parseDeliveryReceipt, toDeliveryReceiptWire],
   ['mandate.json', parseMandate, toMandateWire],
   ['quote.json', parseQuote, toQuoteWire],
   ['payment-proof.json', parsePaymentProof, toPaymentProofWire],
@@ -87,6 +91,7 @@ test('rejects unknown Contract versions instead of accepting future semantics', 
 
 test('matches the reviewed V1 JSON Schema fingerprints', () => {
   const schemas = {
+    deliveryReceipt: getDeliveryReceiptJsonSchema(),
     mandate: getMandateJsonSchema(),
     quote: getQuoteJsonSchema(),
     paymentProof: getPaymentProofJsonSchema(),
@@ -95,6 +100,7 @@ test('matches the reviewed V1 JSON Schema fingerprints', () => {
     apiProblem: getApiProblemJsonSchema(),
   };
   const expected = {
+    deliveryReceipt: '40cb52ab18c8998aa304605d185f54a569f3b8a9d929701e2257e5d7a7643713',
     mandate: '47261c88ffd7589f15eb1f079caf25772c41895bac6f5b89349eb7e5f50afe10',
     quote: '42a18dc34c921e6f683b997f13a85b0a65f452cbd6d71210833814489835f74a',
     paymentProof: '3a82bc59027c4ae468d03b32f90cac5f556a3d40f467aca2cf5f23ad1f9c9d09',

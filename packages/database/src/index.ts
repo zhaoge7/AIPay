@@ -287,6 +287,23 @@ export interface PaymentProofTable {
   createdAt: Generated<Date>;
 }
 
+export interface DeliveryTable {
+  id: Generated<string>;
+  transactionId: string;
+  paymentProofId: string;
+  merchantId: string;
+  serviceId: string;
+  status: 'pending' | 'succeeded' | 'failed' | 'timed_out' | 'unknown';
+  resultDigest: Uint8Array | null;
+  deliveredAt: Date | null;
+  errorCode: string | null;
+  proofScheme: 'aipay-jcs-ed25519-v1' | null;
+  proofKeyId: string | null;
+  proofValue: Uint8Array | null;
+  createdAt: Generated<Date>;
+  updatedAt: Generated<Date>;
+}
+
 export interface OutboxEventTable {
   id: Generated<string>;
   aggregateType: string;
@@ -364,6 +381,7 @@ export interface AIPayDatabase {
   refunds: RefundTable;
   refundProviderCalls: RefundProviderCallTable;
   paymentProofs: PaymentProofTable;
+  deliveries: DeliveryTable;
   outboxEvents: OutboxEventTable;
   webhookDeliveries: WebhookDeliveryTable;
   webhookDeliveryAttempts: WebhookDeliveryAttemptTable;

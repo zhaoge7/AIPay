@@ -1,9 +1,15 @@
 import assert from 'node:assert/strict';
 import { Buffer } from 'node:buffer';
-import { generateKeyPairSync } from 'node:crypto';
+import { createHash, generateKeyPairSync, sign } from 'node:crypto';
 import process from 'node:process';
 import test from 'node:test';
 
+import {
+  DELIVERY_RECEIPT_SIGNATURE_DOMAIN,
+  canonicalizeDeliveryReceiptSigningPayload,
+  getDeliveryReceiptSigningPayload,
+  parseDeliveryReceipt,
+} from '@aipay/contracts';
 import { createDatabase } from '@aipay/database';
 import { v7 as uuidv7 } from 'uuid';
 
@@ -36,6 +42,27 @@ async function register(app, email) {
   });
   assert.equal(response.statusCode, 201);
   return { cookie: cookie(response), developerId: body(response).data.developerId };
+}
+
+function signedReceipt(input, keyId, privateKey) {
+  const placeholder = parseDeliveryReceipt({
+    schemaVersion: '1',
+    ...input,
+    proof: { scheme: 'aipay-jcs-ed25519-v1', keyId, value: 'A'.repeat(86) },
+  });
+  const bytes = Buffer.concat([
+    Buffer.from(DELIVERY_RECEIPT_SIGNATURE_DOMAIN, 'utf8'),
+    Buffer.from(
+      canonicalizeDeliveryReceiptSigningPayload(getDeliveryReceiptSigningPayload(placeholder)),
+      'utf8',
+    ),
+  ]);
+  const signature = sign(null, bytes, privateKey).toString('base64url');
+  return {
+    schemaVersion: '1',
+    ...input,
+    proof: { scheme: 'aipay-jcs-ed25519-v1', keyId, value: signature },
+  };
 }
 
 test('issues, verifies and consumes a Payment Proof exactly once with bound resources', async (context) => {
@@ -104,6 +131,8 @@ test('issues, verifies and consumes a Payment Proof exactly once with bound reso
     })
     .returning('id')
     .executeTakeFirstOrThrow();
+  const merchantKeys = generateKeyPairSync('ed25519');
+  const merchantPublic = merchantKeys.publicKey.export({ format: 'der', type: 'spki' });
   const merchantKey = await database
     .insertInto('signingKeys')
     .values({
@@ -111,7 +140,7 @@ test('issues, verifies and consumes a Payment Proof exactly once with bound reso
       developerId: null,
       agentId: null,
       merchantId: merchant.id,
-      publicKey: Buffer.alloc(32, 92),
+      publicKey: merchantPublic.subarray(-32),
       revokedAt: null,
     })
     .returning('id')
@@ -201,6 +230,7 @@ test('issues, verifies and consumes a Payment Proof exactly once with bound reso
     return { transactionId: `txn_${paymentTransaction.id}`, attemptId: attempt.id };
   }
 
+  now = new Date(Date.now() + 10_000);
   const firstTransaction = await paidTransaction(95);
   const issue = () =>
     app.inject({
@@ -275,6 +305,8 @@ test('issues, verifies and consumes a Payment Proof exactly once with bound reso
   });
   assert.equal(consumed.statusCode, 200);
   assert.equal(body(consumed).data.paymentProofId, paymentProof.paymentProofId);
+  const deliveryId = body(consumed).data.deliveryId;
+  assert.match(deliveryId, /^dlv_/u);
   const replay = await app.inject({
     method: 'POST',
     url: `/v1/merchants/mch_${merchant.id}/payment-proofs/consume`,
@@ -303,6 +335,122 @@ test('issues, verifies and consumes a Payment Proof exactly once with bound reso
     .executeTakeFirstOrThrow();
   assert.equal(deliveryEvent.eventType, 'transaction.delivery_started');
   assert.equal(deliveryEvent.payload.paymentProofId, paymentProof.paymentProofId);
+  assert.equal(deliveryEvent.payload.deliveryId, deliveryId);
+
+  const successReceipt = signedReceipt(
+    {
+      deliveryId,
+      transactionId: paymentProof.transactionId,
+      paymentProofId: paymentProof.paymentProofId,
+      merchantId: paymentProof.merchantId,
+      serviceId: paymentProof.serviceId,
+      status: 'succeeded',
+      resultDigest: `sha256:${createHash('sha256').update('delivered result').digest('hex')}`,
+      deliveredAt: now.toISOString(),
+      errorCode: null,
+    },
+    `key_${merchantKey.id}`,
+    merchantKeys.privateKey,
+  );
+  const receiptVerification = await app.inject({
+    method: 'POST',
+    url: '/v1/deliveries/verify',
+    payload: successReceipt,
+  });
+  assert.equal(receiptVerification.statusCode, 200);
+  assert.equal(body(receiptVerification).data.deliveryId, deliveryId);
+  const changedDigest = {
+    ...successReceipt,
+    resultDigest: `sha256:${'f'.repeat(64)}`,
+  };
+  assert.equal(
+    (
+      await app.inject({
+        method: 'POST',
+        url: '/v1/deliveries/verify',
+        payload: changedDigest,
+      })
+    ).statusCode,
+    401,
+  );
+  const submitReceipt = () =>
+    app.inject({
+      method: 'POST',
+      url: `/v1/merchants/mch_${merchant.id}/deliveries/${deliveryId}/receipt`,
+      headers: { cookie: owner.cookie },
+      payload: successReceipt,
+    });
+  const submitted = await submitReceipt();
+  assert.equal(submitted.statusCode, 200);
+  assert.deepEqual(body(submitted).data, successReceipt);
+  assert.deepEqual(body(await submitReceipt()).data, successReceipt);
+  const deliveredState = await database
+    .selectFrom('deliveries')
+    .innerJoin('transactions', 'transactions.id', 'deliveries.transactionId')
+    .select([
+      'deliveries.status as deliveryStatus',
+      'deliveries.resultDigest',
+      'deliveries.proofValue',
+      'transactions.status as transactionStatus',
+    ])
+    .where('deliveries.id', '=', deliveryId.slice(4))
+    .executeTakeFirstOrThrow();
+  assert.equal(deliveredState.deliveryStatus, 'succeeded');
+  assert.equal(deliveredState.resultDigest?.byteLength, 32);
+  assert.equal(deliveredState.proofValue?.byteLength, 64);
+  assert.equal(deliveredState.transactionStatus, 'delivered');
+
+  const failedTransaction = await paidTransaction(97);
+  const failedProofResponse = await app.inject({
+    method: 'POST',
+    url: `/v1/transactions/${failedTransaction.transactionId}/payment-proof`,
+    headers: { cookie: owner.cookie },
+  });
+  const failedProof = body(failedProofResponse).data;
+  const failedConsume = await app.inject({
+    method: 'POST',
+    url: `/v1/merchants/mch_${merchant.id}/payment-proofs/consume`,
+    headers: { cookie: owner.cookie },
+    payload: { paymentProof: failedProof },
+  });
+  const failedDeliveryId = body(failedConsume).data.deliveryId;
+  const failureReceipt = signedReceipt(
+    {
+      deliveryId: failedDeliveryId,
+      transactionId: failedProof.transactionId,
+      paymentProofId: failedProof.paymentProofId,
+      merchantId: failedProof.merchantId,
+      serviceId: failedProof.serviceId,
+      status: 'failed',
+      resultDigest: `sha256:${createHash('sha256').update('failure evidence').digest('hex')}`,
+      deliveredAt: now.toISOString(),
+      errorCode: 'UPSTREAM_DELIVERY_FAILED',
+    },
+    `key_${merchantKey.id}`,
+    merchantKeys.privateKey,
+  );
+  const failedSubmission = await app.inject({
+    method: 'POST',
+    url: `/v1/merchants/mch_${merchant.id}/deliveries/${failedDeliveryId}/receipt`,
+    headers: { cookie: owner.cookie },
+    payload: failureReceipt,
+  });
+  assert.equal(failedSubmission.statusCode, 200);
+  const failedState = await database
+    .selectFrom('deliveries')
+    .innerJoin('transactions', 'transactions.id', 'deliveries.transactionId')
+    .select([
+      'deliveries.status as deliveryStatus',
+      'deliveries.errorCode',
+      'transactions.status as transactionStatus',
+    ])
+    .where('deliveries.id', '=', failedDeliveryId.slice(4))
+    .executeTakeFirstOrThrow();
+  assert.deepEqual(failedState, {
+    deliveryStatus: 'failed',
+    errorCode: 'UPSTREAM_DELIVERY_FAILED',
+    transactionStatus: 'refund_pending',
+  });
 
   const expiringTransaction = await paidTransaction(96);
   const expiringResponse = await app.inject({

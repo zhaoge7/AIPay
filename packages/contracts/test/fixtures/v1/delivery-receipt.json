@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "1",
+  "deliveryId": "dlv_01890f3e-9b90-7cc2-98c5-7f6a1b2c3d4e",
+  "transactionId": "txn_01890f3e-9b91-7cc2-a8c5-7f6a1b2c3d4e",
+  "paymentProofId": "ppf_01890f3e-9b92-7cc2-b8c5-7f6a1b2c3d4e",
+  "merchantId": "mch_01890f3e-9b93-7cc2-88c5-7f6a1b2c3d4e",
+  "serviceId": "svc_01890f3e-9b94-7cc2-98c5-7f6a1b2c3d4e",
+  "status": "succeeded",
+  "resultDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "deliveredAt": "2026-08-28T09:10:00.000Z",
+  "errorCode": null,
+  "proof": {
+    "scheme": "aipay-jcs-ed25519-v1",
+    "keyId": "key_01890f3e-9b95-7cc2-a8c5-7f6a1b2c3d4e",
+    "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+  }
+}

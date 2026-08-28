@@ -96,7 +96,7 @@ test('signs Webhooks and records retries, recovery, success and dead letters', a
     .returning('id')
     .executeTakeFirstOrThrow();
   const signer = new Ed25519WebhookSigner(`key_${signingKey.id}`, privateKey.toString('base64'));
-  let now = new Date('2026-08-28T06:00:00.000Z');
+  let now = new Date(Date.now() + 1_000);
   const transport = new ControlledTransport([500, new WebhookTransportError('NETWORK_ERROR'), 204]);
   const dispatcher = new WebhookDispatcher(database, signer, transport, {
     maxAttempts: 3,
