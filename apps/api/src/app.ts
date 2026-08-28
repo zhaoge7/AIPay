@@ -19,6 +19,8 @@ import { registerServiceRoutes } from './services/routes.js';
 import { registerQuoteRoutes } from './quotes/routes.js';
 import { registerQuoteSigningRoutes } from './quotes/signing-routes.js';
 import { registerAlipayWebhookRoutes } from './payments/webhook-routes.js';
+import { registerPaymentProofRoutes } from './payments/proof-routes.js';
+import type { PaymentProofIssuer } from './payments/proofs.js';
 import { registerManualApprovalRoutes } from './transactions/manual-approval-routes.js';
 import { registerTransactionCreationRoutes } from './transactions/create-routes.js';
 
@@ -43,6 +45,7 @@ export interface BuildAppOptions {
   readonly logger?: boolean;
   readonly mandateIssuer?: MandateIssuer;
   readonly alipayProvider?: PaymentProvider;
+  readonly paymentProofIssuer?: PaymentProofIssuer;
 }
 
 function sendAuthError(reply: FastifyReply, traceId: string, error: AuthError) {
@@ -117,6 +120,9 @@ export async function buildApp(options: BuildAppOptions) {
   registerTransactionCreationRoutes(app, options.database);
   if (options.alipayProvider !== undefined) {
     registerAlipayWebhookRoutes(app, options.database, options.alipayProvider);
+  }
+  if (options.paymentProofIssuer !== undefined) {
+    registerPaymentProofRoutes(app, options.database, options.paymentProofIssuer);
   }
 
   app.setErrorHandler((error, request, reply) => {

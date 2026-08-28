@@ -18,6 +18,7 @@ export const apiErrorCodes = [
   'AUTHORIZATION_DENIED',
   'MANDATE_EXPIRED',
   'QUOTE_EXPIRED',
+  'PAYMENT_PROOF_EXPIRED',
   'IDEMPOTENCY_CONFLICT',
   'IDEMPOTENCY_IN_PROGRESS',
   'RATE_LIMITED',
@@ -85,6 +86,13 @@ export const apiErrorCatalog = Object.freeze({
   QUOTE_EXPIRED: Object.freeze({
     slug: 'quote-expired',
     title: 'The quote has expired',
+    status: 410,
+    kind: 'expired',
+    retryable: false,
+  }),
+  PAYMENT_PROOF_EXPIRED: Object.freeze({
+    slug: 'payment-proof-expired',
+    title: 'The payment proof has expired',
     status: 410,
     kind: 'expired',
     retryable: false,

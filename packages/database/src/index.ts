@@ -269,6 +269,24 @@ export interface RefundProviderCallTable {
   durationMs: number | null;
 }
 
+export interface PaymentProofTable {
+  id: string;
+  transactionId: string;
+  paymentAttemptId: string;
+  merchantId: string;
+  serviceId: string;
+  currency: Generated<'CNY'>;
+  amountMinor: string;
+  issuedAt: Date;
+  expiresAt: Date;
+  proofScheme: Generated<'aipay-jcs-ed25519-v1'>;
+  proofKeyId: string;
+  proofValue: Uint8Array;
+  status: Generated<'active' | 'consumed' | 'expired'>;
+  consumedAt: Date | null;
+  createdAt: Generated<Date>;
+}
+
 export interface OutboxEventTable {
   id: Generated<string>;
   aggregateType: string;
@@ -345,6 +363,7 @@ export interface AIPayDatabase {
   providerWebhookEvents: ProviderWebhookEventTable;
   refunds: RefundTable;
   refundProviderCalls: RefundProviderCallTable;
+  paymentProofs: PaymentProofTable;
   outboxEvents: OutboxEventTable;
   webhookDeliveries: WebhookDeliveryTable;
   webhookDeliveryAttempts: WebhookDeliveryAttemptTable;

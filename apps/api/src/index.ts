@@ -48,4 +48,5 @@ export { TransactionCreationError, TransactionCreationService } from './transact
 export { PaymentExecutionError, PaymentExecutionService } from './payments/execution.js';
 export { PaymentWebhookError, PaymentWebhookService } from './payments/webhook.js';
 export { RefundExecutionError, RefundExecutionService } from './payments/refunds.js';
+export { PaymentProofError, PaymentProofIssuer } from './payments/proofs.js';
 export { ARGON2ID_OPTIONS, hashPassword, verifyPassword } from './auth/password.js';

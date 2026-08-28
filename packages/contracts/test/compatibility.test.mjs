@@ -100,7 +100,7 @@ test('matches the reviewed V1 JSON Schema fingerprints', () => {
     paymentProof: '3a82bc59027c4ae468d03b32f90cac5f556a3d40f467aca2cf5f23ad1f9c9d09',
     transaction: 'd1a1c9b2f7baada6aed4427fdb6b099556a656874f93459821ba210cdd34449d',
     auditEvent: '4b19011f626d4f7403bc2bd4b3ee5c19be672bef407d2b8db23c28ad72ac95af',
-    apiProblem: 'b1ee99519c67f828e38600a05d9c0fa3d86468b6b739277cf0c642f7804e6328',
+    apiProblem: '62b15729ef1d0a39597825ddb3eef69df2b361985b5794d27b0e94d7912fda78',
   };
 
   for (const [name, schema] of Object.entries(schemas)) {

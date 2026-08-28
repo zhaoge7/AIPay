@@ -152,6 +152,8 @@ V1 退款只允许 `full_on_delivery_failure` 服务对 paid/delivery_review/del
 
 Payment Proof 是最多 15 分钟有效的一次性交付凭证，不替代 Mandate。严格 V1 Contract 绑定 `ppf_`、Transaction、成功 PaymentAttempt、Merchant、Service、精确 CNY Money、issuedAt/expiresAt；AIPay system issuer 对 `AIPAY-PAYMENT-PROOF-V1\0 || JCS(signingPayload)` 做 Ed25519 签名，签名 payload 移除 `proof.value`。Proof 不携带 Provider 原始报文、支付账号或用户身份数据。
 
+所有者通过 `POST /v1/transactions/:transactionId/payment-proof` 对 paid Transaction 幂等取得 Proof；`POST /v1/payment-proofs/verify` 公开验证密码学签名与当前有效期。商户所有者通过 `POST /v1/merchants/:merchantId/payment-proofs/consume` 一次消费：服务端再次锁定并核对 Transaction/Attempt/Merchant/Service/Money/key/signature，原子标 consumed、推进 delivery_pending 并写 `transaction.delivery_started` Outbox。跨商户、跨服务、跨交易、金额替换和重复消费均拒绝；过期消费会持久化 expired。
+
 ## 环境变量
 
 本地开发从 `.env.example` 创建 `.env`。`.env` 已被 Git 忽略，不要在其中提交真实密钥、Token 或用户数据。
