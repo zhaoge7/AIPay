@@ -47,6 +47,7 @@ interface RefundRecord {
 function freezePayment(record: PaymentRecord): Readonly<ProviderPaymentResult> {
   return Object.freeze({
     providerPaymentId: record.providerPaymentId,
+    providerTransactionId: null,
     status: record.status,
     occurredAt: record.occurredAt,
     failureCode: record.failureCode,

@@ -6,23 +6,26 @@ import { URL, URLSearchParams } from 'node:url';
 
 import { AlipayWebPaymentProvider, PaymentProviderError } from '../dist/index.js';
 
-function fixture() {
+function fixture(client) {
   const appKeys = generateKeyPairSync('rsa', { modulusLength: 2048 });
   const platformKeys = generateKeyPairSync('rsa', { modulusLength: 2048 });
 
-  const alipay = new AlipayWebPaymentProvider({
-    appId: '2024001234567890',
-    sellerId: '2088123456789012',
-    privateKeyPkcs8Base64: appKeys.privateKey
-      .export({ format: 'der', type: 'pkcs8' })
-      .toString('base64'),
-    alipayPublicKeySpkiBase64: platformKeys.publicKey
-      .export({ format: 'der', type: 'spki' })
-      .toString('base64'),
-    gatewayUrl: 'https://openapi-sandbox.dl.alipaydev.com/gateway.do',
-    returnUrl: 'https://aipay.example.com/payments/return',
-    now: () => new Date('2026-08-28T08:00:00.000Z'),
-  });
+  const alipay = new AlipayWebPaymentProvider(
+    {
+      appId: '2024001234567890',
+      sellerId: '2088123456789012',
+      privateKeyPkcs8Base64: appKeys.privateKey
+        .export({ format: 'der', type: 'pkcs8' })
+        .toString('base64'),
+      alipayPublicKeySpkiBase64: platformKeys.publicKey
+        .export({ format: 'der', type: 'spki' })
+        .toString('base64'),
+      gatewayUrl: 'https://openapi-sandbox.dl.alipaydev.com/gateway.do',
+      returnUrl: 'https://aipay.example.com/payments/return',
+      now: () => new Date('2026-08-28T08:00:00.000Z'),
+    },
+    client,
+  );
 
   return { alipay, platformPrivateKey: platformKeys.privateKey };
 }
@@ -128,19 +131,115 @@ test('rejects unsafe endpoints, currency and page-pay amount boundaries', async 
   }
 });
 
-test('advertises only implemented capabilities until later P6 tasks', async () => {
+test('advertises only implemented capabilities until later P6 tasks', () => {
   const alipay = provider();
   assert.deepEqual(alipay.capabilities, {
-    supportsActiveQuery: false,
+    supportsActiveQuery: true,
     supportsRefunds: false,
     supportsWebhookSignatures: true,
   });
-  await assert.rejects(
-    alipay.queryPayment({ providerPaymentId: 'alipay_out_order' }),
-    (error) =>
-      error instanceof PaymentProviderError && error.code === 'QUERY_PAYMENT_NOT_AVAILABLE',
-  );
   assert.equal(alipay.acknowledgeWebhook({ eventId: 'verified' }).body, 'success');
+});
+
+const queryRequest = {
+  transactionId: request.transactionId,
+  paymentAttemptId: request.paymentAttemptId,
+  providerPaymentId: 'alipay_out_AIPAY01890F3EB1017CC2A8C57F6A1B2C3D4E',
+  amount: request.amount,
+};
+
+function clientReturning(response, calls = []) {
+  return {
+    pageExec() {
+      return 'https://openapi-sandbox.dl.alipaydev.com/gateway.do';
+    },
+    async exec(method, parameters, options) {
+      calls.push({ method, parameters, options });
+
+      if (response instanceof Error) {
+        throw response;
+      }
+
+      return response;
+    },
+    checkNotifySignV2() {
+      return false;
+    },
+  };
+}
+
+test('actively queries and binds an Alipay final payment result', async () => {
+  const calls = [];
+  const { alipay } = fixture(
+    clientReturning(
+      {
+        code: '10000',
+        outTradeNo: 'AIPAY01890F3EB1017CC2A8C57F6A1B2C3D4E',
+        tradeNo: '2026082822001234567890123456',
+        totalAmount: '12.34',
+        tradeStatus: 'TRADE_SUCCESS',
+        sendPayDate: '2026-08-28 15:59:58',
+      },
+      calls,
+    ),
+  );
+  const result = await alipay.queryPayment(queryRequest);
+
+  assert.deepEqual(result, {
+    providerPaymentId: queryRequest.providerPaymentId,
+    providerTransactionId: '2026082822001234567890123456',
+    status: 'succeeded',
+    occurredAt: '2026-08-28T07:59:58.000Z',
+    failureCode: null,
+    action: null,
+  });
+  assert.deepEqual(calls, [
+    {
+      method: 'alipay.trade.query',
+      parameters: {
+        bizContent: { outTradeNo: 'AIPAY01890F3EB1017CC2A8C57F6A1B2C3D4E' },
+      },
+      options: { validateSign: true },
+    },
+  ]);
+});
+
+test('maps not-created orders to pending and rejects query failures or mismatches', async () => {
+  const notCreated = fixture(
+    clientReturning({ code: '40004', subCode: 'ACQ.TRADE_NOT_EXIST' }),
+  ).alipay;
+  assert.equal((await notCreated.queryPayment(queryRequest)).status, 'pending');
+
+  for (const response of [
+    {
+      code: '10000',
+      outTradeNo: 'AIPAY01890F3EB9997CC2A8C57F6A1B2C3D4E',
+      tradeNo: '2026082822001234567890123456',
+      totalAmount: '12.34',
+      tradeStatus: 'TRADE_SUCCESS',
+    },
+    {
+      code: '10000',
+      outTradeNo: 'AIPAY01890F3EB1017CC2A8C57F6A1B2C3D4E',
+      tradeNo: '2026082822001234567890123456',
+      totalAmount: '12.35',
+      tradeStatus: 'TRADE_SUCCESS',
+    },
+  ]) {
+    await assert.rejects(
+      fixture(clientReturning(response)).alipay.queryPayment(queryRequest),
+      (error) => error instanceof PaymentProviderError && error.code === 'QUERY_RESPONSE_MISMATCH',
+    );
+  }
+
+  await assert.rejects(
+    fixture(clientReturning(new Error('network secret'))).alipay.queryPayment(queryRequest),
+    (error) =>
+      error instanceof PaymentProviderError &&
+      error.kind === 'retryable' &&
+      error.code === 'QUERY_UNAVAILABLE' &&
+      !error.message.includes('network secret'),
+  );
 });
 
 test('verifies and binds RSA2 payment notifications', async () => {

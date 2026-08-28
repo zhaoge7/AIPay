@@ -192,6 +192,7 @@ export interface PaymentAttemptTable {
   attemptNumber: number;
   provider: string;
   providerReference: string | null;
+  providerTransactionId: Generated<string | null>;
   currency: Generated<'CNY'>;
   amountMinor: string;
   status: 'pending' | 'succeeded' | 'failed' | 'unknown';
@@ -219,6 +220,7 @@ export interface PaymentProviderCallTable {
   outcome: Generated<'started' | 'succeeded' | 'failed'>;
   providerStatus: 'pending' | 'succeeded' | 'failed' | 'unknown' | null;
   providerReference: string | null;
+  providerTransactionId: Generated<string | null>;
   errorKind: string | null;
   errorCode: string | null;
   startedAt: Generated<Date>;

@@ -2,14 +2,9 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 
 import { parseResourceId } from '@aipay/contracts';
 import type { Database } from '@aipay/database';
-import type {
-  PaymentProvider,
-  ProviderPaymentStatus,
-  ProviderWebhookEvent,
-  ProviderWebhookRequest,
-} from '@aipay/payment';
+import type { PaymentProvider, ProviderWebhookEvent, ProviderWebhookRequest } from '@aipay/payment';
 
-import { enqueuePaymentStateChange, transactionStatus } from './state.js';
+import { enqueuePaymentStateChange, shouldApplyPaymentStatus, transactionStatus } from './state.js';
 
 export type PaymentWebhookErrorCode =
   'unsupported_event' | 'event_conflict' | 'payment_not_found' | 'amount_mismatch';
@@ -33,14 +28,6 @@ export interface PaymentWebhookResult {
 
 function eventDigest(event: ProviderWebhookEvent): Buffer {
   return createHash('sha256').update(JSON.stringify(event), 'utf8').digest();
-}
-
-function shouldApply(current: ProviderPaymentStatus, incoming: ProviderPaymentStatus): boolean {
-  if (current === incoming || current === 'succeeded' || current === 'failed') {
-    return false;
-  }
-
-  return !(current === 'unknown' && incoming === 'pending');
 }
 
 export class PaymentWebhookService {
@@ -125,7 +112,7 @@ export class PaymentWebhookService {
         throw new PaymentWebhookError('amount_mismatch');
       }
 
-      const apply = shouldApply(attempt.status, event.status);
+      const apply = shouldApplyPaymentStatus(attempt.status, event.status);
 
       if (apply) {
         await transaction

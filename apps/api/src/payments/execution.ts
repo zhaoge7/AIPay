@@ -16,7 +16,7 @@ import {
   type ProviderPaymentStatus,
 } from '@aipay/payment';
 
-import { enqueuePaymentStateChange, transactionStatus } from './state.js';
+import { enqueuePaymentStateChange, shouldApplyPaymentStatus, transactionStatus } from './state.js';
 
 export type PaymentExecutionErrorCode =
   'not_found' | 'invalid_state' | 'provider_error' | 'provider_reference_missing';
@@ -39,6 +39,7 @@ export interface PaymentAttemptView {
   readonly attemptNumber: number;
   readonly provider: string;
   readonly providerReference: string | null;
+  readonly providerTransactionId: string | null;
   readonly amount: Readonly<{ currency: 'CNY'; amountMinor: string }>;
   readonly status: ProviderPaymentStatus;
   readonly errorCode: string | null;
@@ -54,6 +55,8 @@ interface ExecutionContext {
   readonly amountMinor: string;
   readonly provider: string;
   readonly providerReference: string | null;
+  readonly providerTransactionId: string | null;
+  readonly operation: 'payment.create' | 'payment.query';
   readonly callId: string;
   readonly startedAt: Date;
 }
@@ -69,6 +72,7 @@ function toAttemptView(
     readonly attemptNumber: number;
     readonly provider: string;
     readonly providerReference: string | null;
+    readonly providerTransactionId: string | null;
     readonly currency: 'CNY';
     readonly amountMinor: string;
     readonly status: ProviderPaymentStatus;
@@ -84,6 +88,7 @@ function toAttemptView(
     attemptNumber: row.attemptNumber,
     provider: row.provider,
     providerReference: row.providerReference,
+    providerTransactionId: row.providerTransactionId,
     amount: createMoney(row.currency, row.amountMinor),
     status: row.status,
     errorCode: row.errorCode,
@@ -99,6 +104,7 @@ const attemptColumns = [
   'attemptNumber',
   'provider',
   'providerReference',
+  'providerTransactionId',
   'currency',
   'amountMinor',
   'status',
@@ -152,6 +158,7 @@ export class PaymentExecutionService {
           attemptNumber,
           provider: provider.name,
           providerReference: null,
+          providerTransactionId: null,
           amountMinor: paymentTransaction.amountMinor,
           status: 'pending',
           errorCode: null,
@@ -172,6 +179,7 @@ export class PaymentExecutionService {
           }),
           providerStatus: null,
           providerReference: null,
+          providerTransactionId: null,
           errorKind: null,
           errorCode: null,
           completedAt: null,
@@ -192,6 +200,8 @@ export class PaymentExecutionService {
         amountMinor: paymentTransaction.amountMinor,
         provider: provider.name,
         providerReference: null,
+        providerTransactionId: null,
+        operation: 'payment.create',
         callId: call.id,
         startedAt: call.startedAt,
       });
@@ -224,6 +234,7 @@ export class PaymentExecutionService {
         transactionId: context.transactionId,
         paymentAttemptId,
         providerPaymentId,
+        amount: createMoney('CNY', context.amountMinor),
       });
       return await this.#completeSuccess(context, result);
     } catch (error) {
@@ -258,7 +269,14 @@ export class PaymentExecutionService {
     return this.#database.transaction().execute(async (transaction) => {
       const attempt = await transaction
         .selectFrom('paymentAttempts')
-        .select(['id', 'transactionId', 'provider', 'providerReference', 'amountMinor'])
+        .select([
+          'id',
+          'transactionId',
+          'provider',
+          'providerReference',
+          'providerTransactionId',
+          'amountMinor',
+        ])
         .where('id', '=', getResourceUuid(paymentAttemptId))
         .forUpdate()
         .executeTakeFirst();
@@ -290,10 +308,12 @@ export class PaymentExecutionService {
             transactionId,
             paymentAttemptId,
             providerReference: attempt.providerReference,
+            amountMinor: attempt.amountMinor,
             operation,
           }),
           providerStatus: null,
           providerReference: attempt.providerReference,
+          providerTransactionId: attempt.providerTransactionId,
           errorKind: null,
           errorCode: null,
           completedAt: null,
@@ -309,6 +329,8 @@ export class PaymentExecutionService {
         amountMinor: attempt.amountMinor,
         provider: provider.name,
         providerReference: attempt.providerReference,
+        providerTransactionId: attempt.providerTransactionId,
+        operation,
         callId: call.id,
         startedAt: call.startedAt,
       });
@@ -331,7 +353,7 @@ export class PaymentExecutionService {
     return this.#database.transaction().execute(async (transaction) => {
       const previousAttempt = await transaction
         .selectFrom('paymentAttempts')
-        .select('status')
+        .select(attemptColumns)
         .where('id', '=', getResourceUuid(context.paymentAttemptId))
         .forUpdate()
         .executeTakeFirstOrThrow();
@@ -341,35 +363,42 @@ export class PaymentExecutionService {
           outcome: 'succeeded',
           providerStatus: result.status,
           providerReference: result.providerPaymentId,
+          providerTransactionId: result.providerTransactionId,
           completedAt,
           durationMs,
         })
         .where('id', '=', context.callId)
         .where('outcome', '=', 'started')
         .executeTakeFirstOrThrow();
-      const attempt = await transaction
-        .updateTable('paymentAttempts')
-        .set({
-          providerReference: result.providerPaymentId,
-          status: result.status,
-          errorCode: attemptErrorCode,
-          updatedAt: completedAt,
-        })
-        .where('id', '=', getResourceUuid(context.paymentAttemptId))
-        .returning(attemptColumns)
-        .executeTakeFirstOrThrow();
-      await transaction
-        .updateTable('transactions')
-        .set({ status: transactionStatus(result.status), updatedAt: completedAt })
-        .where('id', '=', getResourceUuid(context.transactionId))
-        .executeTakeFirstOrThrow();
-      if (previousAttempt.status !== result.status) {
+      const apply = shouldApplyPaymentStatus(previousAttempt.status, result.status);
+      const preserveCurrent = !apply && previousAttempt.status !== result.status;
+      const attempt = preserveCurrent
+        ? previousAttempt
+        : await transaction
+            .updateTable('paymentAttempts')
+            .set({
+              providerReference: result.providerPaymentId,
+              providerTransactionId: result.providerTransactionId,
+              status: result.status,
+              errorCode: attemptErrorCode,
+              updatedAt: completedAt,
+            })
+            .where('id', '=', getResourceUuid(context.paymentAttemptId))
+            .returning(attemptColumns)
+            .executeTakeFirstOrThrow();
+      if (apply) {
+        await transaction
+          .updateTable('transactions')
+          .set({ status: transactionStatus(result.status), updatedAt: completedAt })
+          .where('id', '=', getResourceUuid(context.transactionId))
+          .executeTakeFirstOrThrow();
         await enqueuePaymentStateChange(
           transaction,
           context,
           result.status,
           result.providerPaymentId,
           attemptErrorCode,
+          result.providerTransactionId,
         );
       }
       return toAttemptView(attempt, result.action);
@@ -387,12 +416,15 @@ export class PaymentExecutionService {
             kind: 'fatal',
             code: 'UNEXPECTED_ERROR',
           });
-    const status: ProviderPaymentStatus = providerError.kind === 'retryable' ? 'unknown' : 'failed';
+    const status: ProviderPaymentStatus =
+      context.operation === 'payment.query' || providerError.kind === 'retryable'
+        ? 'unknown'
+        : 'failed';
 
     await this.#database.transaction().execute(async (transaction) => {
       const previousAttempt = await transaction
         .selectFrom('paymentAttempts')
-        .select('status')
+        .select(attemptColumns)
         .where('id', '=', getResourceUuid(context.paymentAttemptId))
         .forUpdate()
         .executeTakeFirstOrThrow();
@@ -409,17 +441,21 @@ export class PaymentExecutionService {
         .where('id', '=', context.callId)
         .where('outcome', '=', 'started')
         .executeTakeFirstOrThrow();
-      await transaction
-        .updateTable('paymentAttempts')
-        .set({ status, errorCode: providerError.code, updatedAt: completedAt })
-        .where('id', '=', getResourceUuid(context.paymentAttemptId))
-        .executeTakeFirstOrThrow();
-      await transaction
-        .updateTable('transactions')
-        .set({ status: transactionStatus(status), updatedAt: completedAt })
-        .where('id', '=', getResourceUuid(context.transactionId))
-        .executeTakeFirstOrThrow();
-      if (previousAttempt.status !== status) {
+      const apply = shouldApplyPaymentStatus(previousAttempt.status, status);
+      const preserveCurrent = !apply && previousAttempt.status !== status;
+      if (!preserveCurrent) {
+        await transaction
+          .updateTable('paymentAttempts')
+          .set({ status, errorCode: providerError.code, updatedAt: completedAt })
+          .where('id', '=', getResourceUuid(context.paymentAttemptId))
+          .executeTakeFirstOrThrow();
+      }
+      if (apply) {
+        await transaction
+          .updateTable('transactions')
+          .set({ status: transactionStatus(status), updatedAt: completedAt })
+          .where('id', '=', getResourceUuid(context.transactionId))
+          .executeTakeFirstOrThrow();
         await enqueuePaymentStateChange(
           transaction,
           context,

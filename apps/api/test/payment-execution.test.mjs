@@ -5,7 +5,7 @@ import test from 'node:test';
 
 import { parseResourceId } from '@aipay/contracts';
 import { createDatabase } from '@aipay/database';
-import { FakePaymentProvider } from '@aipay/payment';
+import { AlipayWebPaymentProvider, FakePaymentProvider } from '@aipay/payment';
 
 import { PaymentExecutionError, PaymentExecutionService } from '../dist/payments/execution.js';
 import { runMigrations } from '../../../packages/database/scripts/migration-runner.mjs';
@@ -198,15 +198,70 @@ test('records every Provider create/retry/query call and its result', async (con
   assert.equal(recovered.status, 'succeeded');
   assert.equal(recovered.providerReference, retryCreate.providerReference);
 
+  const alipayTransaction = await transaction(57);
+  const alipayClientCalls = [];
+  let failAlipayQuery = false;
+  const alipayClient = {
+    pageExec() {
+      return 'https://openapi-sandbox.dl.alipaydev.com/gateway.do?method=alipay.trade.page.pay';
+    },
+    async exec(method, parameters, options) {
+      alipayClientCalls.push({ method, parameters, options });
+
+      if (failAlipayQuery) {
+        throw new Error('simulated query outage');
+      }
+
+      const outTradeNo = parameters.bizContent.outTradeNo;
+      return {
+        code: '10000',
+        outTradeNo,
+        tradeNo: '2026082822001234567890123457',
+        totalAmount: '2.00',
+        tradeStatus: 'TRADE_SUCCESS',
+        sendPayDate: '2026-08-28 16:00:00',
+      };
+    },
+    checkNotifySignV2() {
+      return false;
+    },
+  };
+  const alipay = new AlipayWebPaymentProvider(
+    {
+      appId: '2024001234567890',
+      sellerId: '2088123456789012',
+      privateKeyPkcs8Base64: 'injected-client-does-not-read-private-key',
+      alipayPublicKeySpkiBase64: 'injected-client-does-not-read-public-key',
+      gatewayUrl: 'https://openapi-sandbox.dl.alipaydev.com/gateway.do',
+    },
+    alipayClient,
+  );
+  const alipayPending = await execution.create(alipayTransaction, alipay);
+  assert.equal(alipayPending.status, 'pending');
+  assert.equal(alipayPending.providerTransactionId, null);
+  assert.equal(alipayPending.action.type, 'redirect');
+  const alipayRecovered = await execution.query(alipayPending.paymentAttemptId, alipay);
+  assert.equal(alipayRecovered.status, 'succeeded');
+  assert.equal(alipayRecovered.providerReference, alipayPending.providerReference);
+  assert.equal(alipayRecovered.providerTransactionId, '2026082822001234567890123457');
+  assert.equal(alipayRecovered.action, null);
+  assert.equal(alipayClientCalls.length, 1);
+  failAlipayQuery = true;
+  await assert.rejects(
+    execution.query(alipayPending.paymentAttemptId, alipay),
+    (error) => error instanceof PaymentExecutionError && error.providerCode === 'QUERY_UNAVAILABLE',
+  );
+  assert.equal(alipayClientCalls.length, 2);
+
   const attempts = await database
     .selectFrom('paymentAttempts')
-    .select(['transactionId', 'status', 'providerReference'])
+    .select(['transactionId', 'status', 'providerReference', 'providerTransactionId'])
     .orderBy('createdAt', 'asc')
     .execute();
-  assert.equal(attempts.length, 3);
+  assert.equal(attempts.length, 4);
   assert.deepEqual(
     attempts.map(({ status }) => status),
-    ['succeeded', 'failed', 'succeeded'],
+    ['succeeded', 'failed', 'succeeded', 'succeeded'],
   );
 
   const calls = await database
@@ -218,6 +273,7 @@ test('records every Provider create/retry/query call and its result', async (con
       'outcome',
       'providerStatus',
       'providerReference',
+      'providerTransactionId',
       'errorKind',
       'errorCode',
       'completedAt',
@@ -225,10 +281,19 @@ test('records every Provider create/retry/query call and its result', async (con
     ])
     .orderBy('startedAt', 'asc')
     .execute();
-  assert.equal(calls.length, 5);
+  assert.equal(calls.length, 8);
   assert.deepEqual(
     calls.map(({ operation }) => operation),
-    ['payment.create', 'payment.create', 'payment.create', 'payment.create', 'payment.query'],
+    [
+      'payment.create',
+      'payment.create',
+      'payment.create',
+      'payment.create',
+      'payment.query',
+      'payment.create',
+      'payment.query',
+      'payment.query',
+    ],
   );
   assert.equal(
     calls.every(({ requestDigest }) => requestDigest.byteLength === 32),
@@ -246,7 +311,13 @@ test('records every Provider create/retry/query call and its result', async (con
   assert.equal(timeoutCall?.outcome, 'failed');
   assert.equal(timeoutCall?.providerStatus, 'unknown');
   assert.equal(timeoutCall?.errorKind, 'retryable');
-  assert.equal(calls.filter(({ providerReference }) => providerReference !== null).length, 4);
+  assert.equal(calls.filter(({ providerReference }) => providerReference !== null).length, 7);
+  assert.equal(
+    calls.filter(
+      ({ providerTransactionId }) => providerTransactionId === '2026082822001234567890123457',
+    ).length,
+    2,
+  );
 
   const transactionStates = await database
     .selectFrom('transactions')
@@ -255,6 +326,19 @@ test('records every Provider create/retry/query call and its result', async (con
     .execute();
   assert.deepEqual(
     transactionStates.map(({ status }) => status),
-    ['paid', 'failed', 'paid'],
+    ['paid', 'failed', 'paid', 'paid'],
   );
+  const alipayState = await database
+    .selectFrom('paymentAttempts')
+    .innerJoin('transactions', 'transactions.id', 'paymentAttempts.transactionId')
+    .select(['paymentAttempts.status as attemptStatus', 'transactions.status as transactionStatus'])
+    .where('paymentAttempts.id', '=', alipayPending.paymentAttemptId.slice(4))
+    .executeTakeFirstOrThrow();
+  assert.deepEqual(alipayState, { attemptStatus: 'succeeded', transactionStatus: 'paid' });
+  const alipayOutbox = await database
+    .selectFrom('outboxEvents')
+    .select(({ fn }) => fn.countAll().as('count'))
+    .where('aggregateId', '=', alipayTransaction.slice(4))
+    .executeTakeFirstOrThrow();
+  assert.equal(Number(alipayOutbox.count), 1);
 });

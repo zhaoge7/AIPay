@@ -13,6 +13,7 @@ import {
   type ProviderWebhookAcknowledgement,
   type ProviderWebhookEvent,
   type ProviderWebhookRequest,
+  type QueryPaymentRequest,
 } from './index.js';
 
 const officialGateways = new Set([
@@ -31,6 +32,20 @@ export interface AlipayWebPaymentProviderOptions {
   readonly gatewayUrl: string;
   readonly returnUrl?: string;
   readonly now?: () => Date;
+}
+
+interface AlipayClientPort {
+  pageExec(
+    method: string,
+    httpMethod: 'GET',
+    parameters: Readonly<Record<string, unknown>>,
+  ): string;
+  exec(
+    method: string,
+    parameters: Readonly<Record<string, unknown>>,
+    options: Readonly<{ validateSign: boolean }>,
+  ): Promise<Readonly<Record<string, unknown>>>;
+  checkNotifySignV2(parameters: Readonly<Record<string, string>>): boolean;
 }
 
 function invalidWebhook(code: string): PaymentProviderError {
@@ -61,6 +76,22 @@ function outTradeNo(paymentAttemptId: string): string {
 
 function providerPaymentId(outTradeNumber: string): string {
   return `alipay_out_${outTradeNumber}`;
+}
+
+function outTradeNoFromProviderId(value: string): string {
+  const prefix = 'alipay_out_';
+
+  if (!value.startsWith(prefix)) {
+    throw new PaymentProviderError({
+      provider: 'alipay_web',
+      kind: 'invalid_request',
+      code: 'INVALID_PROVIDER_PAYMENT_ID',
+    });
+  }
+
+  const orderNumber = value.slice(prefix.length);
+  paymentIdFromOutTradeNo(orderNumber);
+  return orderNumber;
 }
 
 function paymentIdFromOutTradeNo(value: string): string {
@@ -239,20 +270,43 @@ function notificationStatus(value: string) {
   }
 }
 
+function responseString(response: Readonly<Record<string, unknown>>, name: string): string | null {
+  const value = response[name];
+  return typeof value === 'string' && value.length > 0 ? value : null;
+}
+
+function queryStatus(value: string) {
+  switch (value) {
+    case 'WAIT_BUYER_PAY':
+      return Object.freeze({ status: 'pending' as const, failureCode: null });
+    case 'TRADE_SUCCESS':
+    case 'TRADE_FINISHED':
+      return Object.freeze({ status: 'succeeded' as const, failureCode: null });
+    case 'TRADE_CLOSED':
+      return Object.freeze({ status: 'failed' as const, failureCode: 'TRADE_CLOSED' });
+    default:
+      throw new PaymentProviderError({
+        provider: 'alipay_web',
+        kind: 'fatal',
+        code: 'QUERY_RESPONSE_INVALID',
+      });
+  }
+}
+
 export class AlipayWebPaymentProvider implements PaymentProvider {
   readonly name = 'alipay_web';
   readonly capabilities = Object.freeze({
-    supportsActiveQuery: false,
+    supportsActiveQuery: true,
     supportsRefunds: false,
     supportsWebhookSignatures: true,
   });
-  readonly #client: AlipaySdk;
+  readonly #client: AlipayClientPort;
   readonly #appId: string;
   readonly #sellerId: string;
   readonly #returnUrl: string | undefined;
   readonly #now: () => Date;
 
-  constructor(options: AlipayWebPaymentProviderOptions) {
+  constructor(options: AlipayWebPaymentProviderOptions, client?: AlipayClientPort) {
     if (!officialGateways.has(options.gatewayUrl)) {
       throw new Error('Alipay gateway must be an official endpoint');
     }
@@ -261,15 +315,17 @@ export class AlipayWebPaymentProvider implements PaymentProvider {
     this.#now = options.now ?? (() => new Date());
     this.#appId = options.appId;
     this.#sellerId = options.sellerId;
-    this.#client = new AlipaySdk({
-      appId: options.appId,
-      privateKey: options.privateKeyPkcs8Base64,
-      alipayPublicKey: options.alipayPublicKeySpkiBase64,
-      gateway: options.gatewayUrl,
-      keyType: 'PKCS8',
-      signType: 'RSA2',
-      camelcase: true,
-    });
+    this.#client =
+      client ??
+      new AlipaySdk({
+        appId: options.appId,
+        privateKey: options.privateKeyPkcs8Base64,
+        alipayPublicKey: options.alipayPublicKeySpkiBase64,
+        gateway: options.gatewayUrl,
+        keyType: 'PKCS8',
+        signType: 'RSA2',
+        camelcase: true,
+      });
   }
 
   async createPayment(request: CreatePaymentRequest): Promise<Readonly<ProviderPaymentResult>> {
@@ -300,6 +356,7 @@ export class AlipayWebPaymentProvider implements PaymentProvider {
 
     return Object.freeze({
       providerPaymentId: providerPaymentId(orderNumber),
+      providerTransactionId: null,
       status: 'pending',
       occurredAt: formatUtcDateTime(this.#now()),
       failureCode: null,
@@ -307,9 +364,68 @@ export class AlipayWebPaymentProvider implements PaymentProvider {
     });
   }
 
-  async queryPayment(): Promise<Readonly<ProviderPaymentResult>> {
-    await Promise.resolve();
-    throw unavailable('QUERY_PAYMENT');
+  async queryPayment(request: QueryPaymentRequest): Promise<Readonly<ProviderPaymentResult>> {
+    assertCnyCurrency(request.amount.currency);
+    const orderNumber = outTradeNoFromProviderId(request.providerPaymentId);
+    let response: Readonly<Record<string, unknown>>;
+
+    try {
+      response = await this.#client.exec(
+        'alipay.trade.query',
+        { bizContent: { outTradeNo: orderNumber } },
+        { validateSign: true },
+      );
+    } catch {
+      throw new PaymentProviderError({
+        provider: this.name,
+        kind: 'retryable',
+        code: 'QUERY_UNAVAILABLE',
+      });
+    }
+
+    const code = responseString(response, 'code');
+    const subCode = responseString(response, 'subCode');
+
+    if (code !== '10000') {
+      if (subCode === 'ACQ.TRADE_NOT_EXIST') {
+        return Object.freeze({
+          providerPaymentId: request.providerPaymentId,
+          providerTransactionId: null,
+          status: 'pending',
+          occurredAt: formatUtcDateTime(this.#now()),
+          failureCode: null,
+          action: null,
+        });
+      }
+
+      throw new PaymentProviderError({
+        provider: this.name,
+        kind: 'fatal',
+        code: subCode ?? 'QUERY_FAILED',
+      });
+    }
+
+    if (
+      responseString(response, 'outTradeNo') !== orderNumber ||
+      responseString(response, 'totalAmount') !== amountInYuan(request.amount.amountMinor)
+    ) {
+      throw new PaymentProviderError({
+        provider: this.name,
+        kind: 'fatal',
+        code: 'QUERY_RESPONSE_MISMATCH',
+      });
+    }
+
+    const state = queryStatus(responseString(response, 'tradeStatus') ?? '');
+    const paidAt = responseString(response, 'sendPayDate');
+    return Object.freeze({
+      providerPaymentId: request.providerPaymentId,
+      providerTransactionId: responseString(response, 'tradeNo'),
+      status: state.status,
+      occurredAt: paidAt === null ? formatUtcDateTime(this.#now()) : notificationTime(paidAt),
+      failureCode: state.failureCode,
+      action: null,
+    });
   }
 
   async createRefund(): Promise<Readonly<ProviderRefundResult>> {

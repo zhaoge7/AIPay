@@ -22,6 +22,17 @@ export function transactionStatus(status: ProviderPaymentStatus) {
   }
 }
 
+export function shouldApplyPaymentStatus(
+  current: ProviderPaymentStatus,
+  incoming: ProviderPaymentStatus,
+): boolean {
+  if (current === incoming || current === 'succeeded' || current === 'failed') {
+    return false;
+  }
+
+  return !(current === 'unknown' && incoming === 'pending');
+}
+
 function paymentEventType(status: ProviderPaymentStatus) {
   switch (status) {
     case 'succeeded':

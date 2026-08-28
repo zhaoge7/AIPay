@@ -22,6 +22,7 @@ export interface QueryPaymentRequest {
   readonly transactionId: ResourceId<'txn'>;
   readonly paymentAttemptId: ResourceId<'pat'>;
   readonly providerPaymentId: string;
+  readonly amount: Readonly<Money>;
 }
 
 export interface ProviderPaymentAction {
@@ -32,6 +33,7 @@ export interface ProviderPaymentAction {
 
 export interface ProviderPaymentResult {
   readonly providerPaymentId: string;
+  readonly providerTransactionId: string | null;
   readonly status: ProviderPaymentStatus;
   readonly occurredAt: UtcDateTime;
   readonly failureCode: string | null;
