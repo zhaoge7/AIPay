@@ -9,15 +9,18 @@ import {
   getApiProblemJsonSchema,
   getAuditEventJsonSchema,
   getMandateJsonSchema,
+  getPaymentProofJsonSchema,
   getQuoteJsonSchema,
   getTransactionJsonSchema,
   parseApiProblem,
   parseAuditEvent,
   parseMandate,
+  parsePaymentProof,
   parseQuote,
   parseTransaction,
   toAuditEventWire,
   toMandateWire,
+  toPaymentProofWire,
   toQuoteWire,
   toTransactionWire,
 } from '../dist/index.js';
@@ -31,6 +34,7 @@ async function readFixture(name) {
 const versionedContracts = [
   ['mandate.json', parseMandate, toMandateWire],
   ['quote.json', parseQuote, toQuoteWire],
+  ['payment-proof.json', parsePaymentProof, toPaymentProofWire],
   ['transaction.json', parseTransaction, toTransactionWire],
   ['audit-event.json', parseAuditEvent, toAuditEventWire],
 ];
@@ -85,6 +89,7 @@ test('matches the reviewed V1 JSON Schema fingerprints', () => {
   const schemas = {
     mandate: getMandateJsonSchema(),
     quote: getQuoteJsonSchema(),
+    paymentProof: getPaymentProofJsonSchema(),
     transaction: getTransactionJsonSchema(),
     auditEvent: getAuditEventJsonSchema(),
     apiProblem: getApiProblemJsonSchema(),
@@ -92,6 +97,7 @@ test('matches the reviewed V1 JSON Schema fingerprints', () => {
   const expected = {
     mandate: '47261c88ffd7589f15eb1f079caf25772c41895bac6f5b89349eb7e5f50afe10',
     quote: '42a18dc34c921e6f683b997f13a85b0a65f452cbd6d71210833814489835f74a',
+    paymentProof: '3a82bc59027c4ae468d03b32f90cac5f556a3d40f467aca2cf5f23ad1f9c9d09',
     transaction: 'd1a1c9b2f7baada6aed4427fdb6b099556a656874f93459821ba210cdd34449d',
     auditEvent: '4b19011f626d4f7403bc2bd4b3ee5c19be672bef407d2b8db23c28ad72ac95af',
     apiProblem: 'b1ee99519c67f828e38600a05d9c0fa3d86468b6b739277cf0c642f7804e6328',

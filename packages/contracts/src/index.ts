@@ -66,6 +66,21 @@ export {
 } from './quote.js';
 
 export {
+  MAX_PAYMENT_PROOF_VALIDITY_MS,
+  PAYMENT_PROOF_SIGNATURE_DOMAIN,
+  PaymentProofWireSchema,
+  canonicalizePaymentProofSigningPayload,
+  getPaymentProofJsonSchema,
+  getPaymentProofSigningPayload,
+  parsePaymentProof,
+  toPaymentProofWire,
+  type PaymentProof,
+  type PaymentProofSignature,
+  type PaymentProofSigningPayload,
+  type PaymentProofWire,
+} from './payment-proof.js';
+
+export {
   TransactionWireSchema,
   assertTransactionBindings,
   getTransactionJsonSchema,

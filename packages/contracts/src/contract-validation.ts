@@ -35,7 +35,8 @@ export class ContractValidationError extends Error {
   readonly issues: readonly Readonly<ContractValidationIssue>[];
 
   constructor(
-    contractName: 'Mandate' | 'Quote' | 'Transaction' | 'ApiProblem' | 'AuditEvent',
+    contractName:
+      'Mandate' | 'Quote' | 'PaymentProof' | 'Transaction' | 'ApiProblem' | 'AuditEvent',
     issues: readonly ContractValidationIssue[],
   ) {
     super(`Invalid ${contractName} contract`);

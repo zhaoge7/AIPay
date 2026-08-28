@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "1",
+  "paymentProofId": "ppf_01890f3e-9b80-7cc2-98c5-7f6a1b2c3d4e",
+  "transactionId": "txn_01890f3e-9b81-7cc2-a8c5-7f6a1b2c3d4e",
+  "paymentAttemptId": "pat_01890f3e-9b82-7cc2-b8c5-7f6a1b2c3d4e",
+  "merchantId": "mch_01890f3e-9b83-7cc2-88c5-7f6a1b2c3d4e",
+  "serviceId": "svc_01890f3e-9b84-7cc2-98c5-7f6a1b2c3d4e",
+  "amount": { "currency": "CNY", "amountMinor": "600" },
+  "issuedAt": "2026-08-28T09:00:00.000Z",
+  "expiresAt": "2026-08-28T09:05:00.000Z",
+  "proof": {
+    "scheme": "aipay-jcs-ed25519-v1",
+    "keyId": "key_01890f3e-9b85-7cc2-a8c5-7f6a1b2c3d4e",
+    "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+  }
+}

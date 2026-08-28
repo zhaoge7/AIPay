@@ -148,6 +148,10 @@ V1 退款只允许 `full_on_delivery_failure` 服务对 paid/delivery_review/del
 
 当前沙箱只验证单一自营测试商户。生产多商户模式必须由实际收款商户完成产品签约，并通过服务商应用授权 `app_auth_token` 代调用；AIPay 不使用一个自有商户号代收第三方资金。支付宝 [AI 按量付费](https://aipay.alipay.com/docs/ai-receive/MACHINE_PAY.html) 与 API/MCP/Skill 最匹配，但它属于 402 `Payment-Needed`/`Payment-Proof` 协议，将在 Payment Proof 与 SDK 阶段接入，不替代本阶段的 Provider 适配器。
 
+## Payment Proof V1
+
+Payment Proof 是最多 15 分钟有效的一次性交付凭证，不替代 Mandate。严格 V1 Contract 绑定 `ppf_`、Transaction、成功 PaymentAttempt、Merchant、Service、精确 CNY Money、issuedAt/expiresAt；AIPay system issuer 对 `AIPAY-PAYMENT-PROOF-V1\0 || JCS(signingPayload)` 做 Ed25519 签名，签名 payload 移除 `proof.value`。Proof 不携带 Provider 原始报文、支付账号或用户身份数据。
+
 ## 环境变量
 
 本地开发从 `.env.example` 创建 `.env`。`.env` 已被 Git 忽略，不要在其中提交真实密钥、Token 或用户数据。
