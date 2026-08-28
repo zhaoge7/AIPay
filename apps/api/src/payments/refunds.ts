@@ -250,6 +250,18 @@ export class RefundExecutionService {
     refundId: ResourceId<'rfd'>,
     provider: PaymentProvider,
   ): Promise<Readonly<RefundView>> {
+    return (await this.queryObserved(refundId, provider)).refund;
+  }
+
+  async queryObserved(
+    refundId: ResourceId<'rfd'>,
+    provider: PaymentProvider,
+  ): Promise<
+    Readonly<{
+      refund: Readonly<RefundView>;
+      observed: Readonly<ProviderRefundResult>;
+    }>
+  > {
     const context = await this.#prepareExisting(refundId, provider, 'refund.query');
 
     if (context.providerRefundId === null) {
@@ -264,7 +276,8 @@ export class RefundExecutionService {
         providerPaymentId: context.providerPaymentId,
         amount: createMoney('CNY', context.amountMinor),
       });
-      return await this.#completeSuccess(context, result);
+      const refund = await this.#completeSuccess(context, result);
+      return Object.freeze({ refund, observed: result });
     } catch (error) {
       return this.#completeFailureAndThrow(context, error);
     }

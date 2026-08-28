@@ -30,6 +30,8 @@ const expectedTables = [
   'payment_provider_calls',
   'provider_webhook_events',
   'quotes',
+  'reconciliation_items',
+  'reconciliation_runs',
   'refund_provider_calls',
   'refunds',
   'services',

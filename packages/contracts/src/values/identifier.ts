@@ -20,6 +20,7 @@ export const resourcePrefixes = [
   'whd',
   'wha',
   'ppf',
+  'rcn',
 ] as const;
 
 export type ResourcePrefix = (typeof resourcePrefixes)[number];

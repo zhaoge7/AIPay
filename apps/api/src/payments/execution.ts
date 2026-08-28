@@ -222,6 +222,18 @@ export class PaymentExecutionService {
     paymentAttemptId: ResourceId<'pat'>,
     provider: PaymentProvider,
   ): Promise<Readonly<PaymentAttemptView>> {
+    return (await this.queryObserved(paymentAttemptId, provider)).attempt;
+  }
+
+  async queryObserved(
+    paymentAttemptId: ResourceId<'pat'>,
+    provider: PaymentProvider,
+  ): Promise<
+    Readonly<{
+      attempt: Readonly<PaymentAttemptView>;
+      observed: Readonly<ProviderPaymentResult>;
+    }>
+  > {
     const context = await this.#prepareExistingCall(paymentAttemptId, provider, 'payment.query');
     const providerPaymentId = context.providerReference;
 
@@ -236,7 +248,8 @@ export class PaymentExecutionService {
         providerPaymentId,
         amount: createMoney('CNY', context.amountMinor),
       });
-      return await this.#completeSuccess(context, result);
+      const attempt = await this.#completeSuccess(context, result);
+      return Object.freeze({ attempt, observed: result });
     } catch (error) {
       return this.#completeFailureAndThrow(context, error);
     }

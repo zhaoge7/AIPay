@@ -306,6 +306,32 @@ export interface DeliveryTable {
   updatedAt: Generated<Date>;
 }
 
+export interface ReconciliationRunTable {
+  id: Generated<string>;
+  provider: string;
+  businessDate: string;
+  status: Generated<'running' | 'completed' | 'failed'>;
+  checkedCount: Generated<number>;
+  discrepancyCount: Generated<number>;
+  repairedCount: Generated<number>;
+  errorCode: string | null;
+  startedAt: Generated<Date>;
+  completedAt: Date | null;
+}
+
+export interface ReconciliationItemTable {
+  id: Generated<string>;
+  runId: string;
+  entityType: 'payment' | 'refund';
+  entityId: string;
+  internalStatusBefore: string;
+  providerStatus: string | null;
+  internalStatusAfter: string;
+  resolution: 'consistent' | 'repaired' | 'manual_review' | 'query_failed';
+  errorCode: string | null;
+  createdAt: Generated<Date>;
+}
+
 export interface OutboxEventTable {
   id: Generated<string>;
   aggregateType: string;
@@ -384,6 +410,8 @@ export interface AIPayDatabase {
   refundProviderCalls: RefundProviderCallTable;
   paymentProofs: PaymentProofTable;
   deliveries: DeliveryTable;
+  reconciliationRuns: ReconciliationRunTable;
+  reconciliationItems: ReconciliationItemTable;
   outboxEvents: OutboxEventTable;
   webhookDeliveries: WebhookDeliveryTable;
   webhookDeliveryAttempts: WebhookDeliveryAttemptTable;
