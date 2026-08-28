@@ -15,6 +15,8 @@ import {
 } from '@aipay/contracts';
 import { enqueueOutboxEvent, type Database } from '@aipay/database';
 
+import { applyDeliveryTimeout } from './timeouts.js';
+
 const maximumFutureSkewMs = 5 * 60 * 1_000;
 
 export type DeliveryReceiptErrorCode =
@@ -142,7 +144,7 @@ export class DeliveryReceiptService {
     }
 
     const now = this.#now();
-    return this.#database.transaction().execute(async (transaction) => {
+    const outcome = await this.#database.transaction().execute(async (transaction) => {
       const row = await transaction
         .selectFrom('deliveries')
         .innerJoin('transactions', 'transactions.id', 'deliveries.transactionId')
@@ -154,6 +156,8 @@ export class DeliveryReceiptService {
           'deliveries.paymentProofId',
           'deliveries.merchantId',
           'deliveries.serviceId',
+          'deliveries.refundPolicy',
+          'deliveries.expiresAt',
           'deliveries.status',
           'deliveries.resultDigest',
           'deliveries.deliveredAt',
@@ -172,6 +176,11 @@ export class DeliveryReceiptService {
 
       if (row?.developerId !== getResourceUuid(developerId)) {
         throw new DeliveryReceiptError('not_found');
+      }
+
+      if (row.status === 'pending' && now >= row.expiresAt) {
+        await applyDeliveryTimeout(transaction, row, now);
+        return Object.freeze({ error: 'invalid_state' as const });
       }
 
       if (row.status === 'succeeded' || row.status === 'failed') {
@@ -194,7 +203,7 @@ export class DeliveryReceiptService {
         });
 
         if (JSON.stringify(stored) === JSON.stringify(toDeliveryReceiptWire(receipt))) {
-          return stored;
+          return Object.freeze({ receipt: stored });
         }
 
         throw new DeliveryReceiptError('invalid_state');
@@ -241,7 +250,12 @@ export class DeliveryReceiptService {
         })
         .where('id', '=', row.id)
         .executeTakeFirstOrThrow();
-      const transactionStatus = receipt.status === 'succeeded' ? 'delivered' : 'refund_pending';
+      const transactionStatus =
+        receipt.status === 'succeeded'
+          ? 'delivered'
+          : row.refundPolicy === 'full_on_delivery_failure'
+            ? 'refund_pending'
+            : 'delivery_review';
       await transaction
         .updateTable('transactions')
         .set({ status: transactionStatus, updatedAt: now })
@@ -262,7 +276,13 @@ export class DeliveryReceiptService {
           errorCode: receipt.errorCode,
         },
       });
-      return toDeliveryReceiptWire(receipt);
+      return Object.freeze({ receipt: toDeliveryReceiptWire(receipt) });
     });
+
+    if ('error' in outcome) {
+      throw new DeliveryReceiptError(outcome.error);
+    }
+
+    return outcome.receipt;
   }
 }

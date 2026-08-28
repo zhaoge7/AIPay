@@ -156,6 +156,8 @@ Payment Proof 是最多 15 分钟有效的一次性交付凭证，不替代 Mand
 
 消费 Payment Proof 时服务端在同一事务创建 pending `dlv_`，商户不能自选 Delivery ID。商户对 `AIPAY-DELIVERY-RECEIPT-V1\0 || JCS(payload)` 做 Ed25519 签名并提交严格 Delivery Receipt：绑定 dlv/txn/ppf/mch/svc、succeeded/failed、SHA-256 结果摘要、deliveredAt 和失败码。公开 `/v1/deliveries/verify` 验签；商户 owner 的 receipt 提交再次锁定所有绑定，成功转 delivered，失败转 refund_pending，并与 `transaction.delivered`/`transaction.delivery_failed` Outbox 同事务。完全相同 Receipt 重试幂等，不同终态冲突。
 
+pending Delivery 默认 5 分钟截止，并快照 Proof 消费时的 refundPolicy；`now >= expiresAt` 即超时。多 Worker 以 `FOR UPDATE SKIP LOCKED` 扫描：`full_on_delivery_failure` 原子进入 timed_out + refund_pending，`non_refundable` 进入 timed_out + delivery_review，并写 `transaction.delivery_timed_out` Outbox。Receipt 提交也在行锁内先检查 deadline，因此扫描与迟到 Receipt 竞争只产生一个终态；超时后 Receipt 一律拒绝。
+
 ## 环境变量
 
 本地开发从 `.env.example` 创建 `.env`。`.env` 已被 Git 忽略，不要在其中提交真实密钥、Token 或用户数据。

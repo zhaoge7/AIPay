@@ -14,6 +14,7 @@ import { createDatabase } from '@aipay/database';
 import { v7 as uuidv7 } from 'uuid';
 
 import { buildApp } from '../dist/app.js';
+import { DeliveryTimeoutService } from '../dist/deliveries/timeouts.js';
 import { PaymentProofIssuer } from '../dist/payments/proofs.js';
 import { runMigrations } from '../../../packages/database/scripts/migration-runner.mjs';
 import {
@@ -451,6 +452,111 @@ test('issues, verifies and consumes a Payment Proof exactly once with bound reso
     errorCode: 'UPSTREAM_DELIVERY_FAILED',
     transactionStatus: 'refund_pending',
   });
+
+  const fullTimeoutTransaction = await paidTransaction(98);
+  const fullTimeoutProof = body(
+    await app.inject({
+      method: 'POST',
+      url: `/v1/transactions/${fullTimeoutTransaction.transactionId}/payment-proof`,
+      headers: { cookie: owner.cookie },
+    }),
+  ).data;
+  const fullTimeoutConsume = body(
+    await app.inject({
+      method: 'POST',
+      url: `/v1/merchants/mch_${merchant.id}/payment-proofs/consume`,
+      headers: { cookie: owner.cookie },
+      payload: { paymentProof: fullTimeoutProof },
+    }),
+  ).data;
+  await database
+    .updateTable('services')
+    .set({ refundPolicy: 'non_refundable', updatedAt: now })
+    .where('id', '=', catalogService.id)
+    .executeTakeFirstOrThrow();
+  const reviewTimeoutTransaction = await paidTransaction(99);
+  const reviewTimeoutProof = body(
+    await app.inject({
+      method: 'POST',
+      url: `/v1/transactions/${reviewTimeoutTransaction.transactionId}/payment-proof`,
+      headers: { cookie: owner.cookie },
+    }),
+  ).data;
+  const reviewTimeoutConsume = body(
+    await app.inject({
+      method: 'POST',
+      url: `/v1/merchants/mch_${merchant.id}/payment-proofs/consume`,
+      headers: { cookie: owner.cookie },
+      payload: { paymentProof: reviewTimeoutProof },
+    }),
+  ).data;
+  now = new Date(now.getTime() + 5 * 60 * 1_000);
+  const [timeoutWorkerA, timeoutWorkerB] = await Promise.all([
+    new DeliveryTimeoutService(database, () => now).expireDue(10),
+    new DeliveryTimeoutService(database, () => now).expireDue(10),
+  ]);
+  const timeouts = [...timeoutWorkerA, ...timeoutWorkerB];
+  assert.equal(new Set(timeouts.map(({ deliveryId: id }) => id)).size, 2);
+  assert.deepEqual(timeouts.map(({ resolution }) => resolution).sort(), [
+    'delivery_review',
+    'refund_pending',
+  ]);
+  const timeoutStates = await database
+    .selectFrom('deliveries')
+    .innerJoin('transactions', 'transactions.id', 'deliveries.transactionId')
+    .select([
+      'deliveries.id',
+      'deliveries.status as deliveryStatus',
+      'deliveries.refundPolicy',
+      'transactions.status as transactionStatus',
+    ])
+    .where('deliveries.id', 'in', [
+      fullTimeoutConsume.deliveryId.slice(4),
+      reviewTimeoutConsume.deliveryId.slice(4),
+    ])
+    .orderBy('deliveries.refundPolicy', 'asc')
+    .execute();
+  assert.deepEqual(
+    timeoutStates.map(({ deliveryStatus, refundPolicy, transactionStatus }) => ({
+      deliveryStatus,
+      refundPolicy,
+      transactionStatus,
+    })),
+    [
+      {
+        deliveryStatus: 'timed_out',
+        refundPolicy: 'full_on_delivery_failure',
+        transactionStatus: 'refund_pending',
+      },
+      {
+        deliveryStatus: 'timed_out',
+        refundPolicy: 'non_refundable',
+        transactionStatus: 'delivery_review',
+      },
+    ],
+  );
+  const lateReceipt = signedReceipt(
+    {
+      deliveryId: fullTimeoutConsume.deliveryId,
+      transactionId: fullTimeoutProof.transactionId,
+      paymentProofId: fullTimeoutProof.paymentProofId,
+      merchantId: fullTimeoutProof.merchantId,
+      serviceId: fullTimeoutProof.serviceId,
+      status: 'succeeded',
+      resultDigest: `sha256:${createHash('sha256').update('late result').digest('hex')}`,
+      deliveredAt: now.toISOString(),
+      errorCode: null,
+    },
+    `key_${merchantKey.id}`,
+    merchantKeys.privateKey,
+  );
+  const lateResponse = await app.inject({
+    method: 'POST',
+    url: `/v1/merchants/mch_${merchant.id}/deliveries/${fullTimeoutConsume.deliveryId}/receipt`,
+    headers: { cookie: owner.cookie },
+    payload: lateReceipt,
+  });
+  assert.equal(lateResponse.statusCode, 409);
 
   const expiringTransaction = await paidTransaction(96);
   const expiringResponse = await app.inject({

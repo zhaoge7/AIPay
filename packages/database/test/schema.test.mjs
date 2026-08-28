@@ -226,10 +226,12 @@ test('creates the complete core schema and enforces Contract bindings', async (c
   await client.query(
     `INSERT INTO aipay.deliveries
       (transaction_id, payment_proof_id, merchant_id, service_id, status,
-       result_digest, delivered_at, proof_scheme, proof_key_id, proof_value)
+       result_digest, delivered_at, proof_scheme, proof_key_id, proof_value,
+       expires_at, refund_policy)
       VALUES ($1, $2, $3, $4, 'succeeded', decode(repeat('05', 32), 'hex'),
         CURRENT_TIMESTAMP, 'aipay-jcs-ed25519-v1', $5,
-        decode(repeat('07', 64), 'hex'))`,
+        decode(repeat('07', 64), 'hex'), CURRENT_TIMESTAMP + INTERVAL '5 minutes',
+        'full_on_delivery_failure')`,
     [transactionId, paymentProofId, merchantId, serviceId, signingKeyId],
   );
 

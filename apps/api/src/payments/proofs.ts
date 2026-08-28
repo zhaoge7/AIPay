@@ -26,6 +26,7 @@ import { enqueueOutboxEvent, type Database, type DatabaseTransaction } from '@ai
 import { v7 as uuidv7 } from 'uuid';
 
 const defaultValidityMs = 5 * 60 * 1_000;
+export const DEFAULT_DELIVERY_TIMEOUT_MS = 5 * 60 * 1_000;
 const placeholderSignature = 'A'.repeat(86);
 
 export type PaymentProofErrorCode =
@@ -363,12 +364,14 @@ export class PaymentProofIssuer {
         .innerJoin('transactions', 'transactions.id', 'paymentProofs.transactionId')
         .innerJoin('paymentAttempts', 'paymentAttempts.id', 'paymentProofs.paymentAttemptId')
         .innerJoin('merchants', 'merchants.id', 'paymentProofs.merchantId')
+        .innerJoin('services', 'services.id', 'paymentProofs.serviceId')
         .select([
           ...proofColumns.map((column) => `paymentProofs.${column}` as const),
           'paymentProofs.status',
           'transactions.status as transactionStatus',
           'paymentAttempts.status as attemptStatus',
           'merchants.developerId',
+          'services.refundPolicy',
         ])
         .where('paymentProofs.id', '=', getResourceUuid(paymentProof.paymentProofId))
         .forUpdate('paymentProofs')
@@ -425,6 +428,8 @@ export class PaymentProofIssuer {
           paymentProofId: row.id,
           merchantId: row.merchantId,
           serviceId: row.serviceId,
+          refundPolicy: row.refundPolicy,
+          expiresAt: new Date(now.getTime() + DEFAULT_DELIVERY_TIMEOUT_MS),
           status: 'pending',
           resultDigest: null,
           deliveredAt: null,

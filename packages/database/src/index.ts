@@ -293,6 +293,8 @@ export interface DeliveryTable {
   paymentProofId: string;
   merchantId: string;
   serviceId: string;
+  refundPolicy: 'full_on_delivery_failure' | 'non_refundable';
+  expiresAt: Date;
   status: 'pending' | 'succeeded' | 'failed' | 'timed_out' | 'unknown';
   resultDigest: Uint8Array | null;
   deliveredAt: Date | null;
