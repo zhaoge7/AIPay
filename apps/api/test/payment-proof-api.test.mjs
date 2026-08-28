@@ -16,6 +16,7 @@ import { v7 as uuidv7 } from 'uuid';
 import { buildApp } from '../dist/app.js';
 import { DeliveryTimeoutService } from '../dist/deliveries/timeouts.js';
 import { PaymentProofIssuer } from '../dist/payments/proofs.js';
+import { RefundExecutionError, RefundExecutionService } from '../dist/payments/refunds.js';
 import { runMigrations } from '../../../packages/database/scripts/migration-runner.mjs';
 import {
   removePostgresContainer,
@@ -452,6 +453,47 @@ test('issues, verifies and consumes a Payment Proof exactly once with bound reso
     errorCode: 'UPSTREAM_DELIVERY_FAILED',
     transactionStatus: 'refund_pending',
   });
+  const refundOutcomes = ['failed', 'succeeded', 'succeeded'];
+  const refundRequests = [];
+  const refundProvider = {
+    name: 'fake',
+    capabilities: {
+      supportsActiveQuery: true,
+      supportsRefunds: true,
+      supportsWebhookSignatures: true,
+    },
+    async createRefund(request) {
+      refundRequests.push(request);
+      const status = refundOutcomes.shift();
+      assert.notEqual(status, undefined);
+      return {
+        providerRefundId: `fake_refund_${request.refundId}`,
+        status,
+        occurredAt: now.toISOString(),
+        failureCode: status === 'failed' ? 'FAKE_REFUND_FAILED' : null,
+      };
+    },
+  };
+  const refundExecution = new RefundExecutionService(database, () => now);
+  const failedRefund = await refundExecution.create(failedProof.transactionId, refundProvider);
+  assert.equal(failedRefund.status, 'failed');
+  assert.equal(failedRefund.amount.amountMinor, '600');
+  let failedRefundTransaction = await database
+    .selectFrom('transactions')
+    .select('status')
+    .where('id', '=', failedProof.transactionId.slice(4))
+    .executeTakeFirstOrThrow();
+  assert.equal(failedRefundTransaction.status, 'refund_review');
+  const retriedRefund = await refundExecution.retryCreate(failedRefund.refundId, refundProvider);
+  assert.equal(retriedRefund.status, 'succeeded');
+  assert.equal(retriedRefund.refundId, failedRefund.refundId);
+  assert.equal(retriedRefund.providerReference, failedRefund.providerReference);
+  failedRefundTransaction = await database
+    .selectFrom('transactions')
+    .select('status')
+    .where('id', '=', failedProof.transactionId.slice(4))
+    .executeTakeFirstOrThrow();
+  assert.equal(failedRefundTransaction.status, 'refunded');
 
   const fullTimeoutTransaction = await paidTransaction(98);
   const fullTimeoutProof = body(
@@ -534,6 +576,22 @@ test('issues, verifies and consumes a Payment Proof exactly once with bound reso
         transactionStatus: 'delivery_review',
       },
     ],
+  );
+  const timedOutRefund = await refundExecution.create(
+    fullTimeoutProof.transactionId,
+    refundProvider,
+  );
+  assert.equal(timedOutRefund.status, 'succeeded');
+  assert.equal(timedOutRefund.amount.amountMinor, '600');
+  await assert.rejects(
+    refundExecution.create(reviewTimeoutProof.transactionId, refundProvider),
+    (error) => error instanceof RefundExecutionError && error.code === 'invalid_state',
+  );
+  assert.equal(refundRequests.length, 3);
+  assert.equal(new Set(refundRequests.slice(0, 2).map(({ refundId }) => refundId)).size, 1);
+  assert.equal(
+    refundRequests.every(({ amount }) => amount.amountMinor === '600'),
+    true,
   );
   const lateReceipt = signedReceipt(
     {

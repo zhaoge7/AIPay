@@ -117,12 +117,15 @@ export class RefundExecutionService {
       const paymentTransaction = await transaction
         .selectFrom('transactions')
         .innerJoin('services', 'services.id', 'transactions.serviceId')
+        .leftJoin('deliveries', 'deliveries.transactionId', 'transactions.id')
         .select([
           'transactions.id',
           'transactions.merchantId',
           'transactions.amountMinor',
           'transactions.status',
-          'services.refundPolicy',
+          'services.refundPolicy as currentRefundPolicy',
+          'deliveries.status as deliveryStatus',
+          'deliveries.refundPolicy as deliveryRefundPolicy',
         ])
         .where('transactions.id', '=', getResourceUuid(transactionId))
         .forUpdate('transactions')
@@ -142,9 +145,20 @@ export class RefundExecutionService {
         return Object.freeze({ existing: toView(existing) });
       }
 
+      const refundPolicy =
+        paymentTransaction.deliveryRefundPolicy ?? paymentTransaction.currentRefundPolicy;
+      const stateEligible = ['paid', 'delivery_review', 'delivered', 'refund_pending'].includes(
+        paymentTransaction.status,
+      );
+      const automaticRefundEligible =
+        paymentTransaction.status !== 'refund_pending' ||
+        paymentTransaction.deliveryStatus === 'failed' ||
+        paymentTransaction.deliveryStatus === 'timed_out';
+
       if (
-        !['paid', 'delivery_review', 'delivered'].includes(paymentTransaction.status) ||
-        paymentTransaction.refundPolicy !== 'full_on_delivery_failure'
+        !stateEligible ||
+        !automaticRefundEligible ||
+        refundPolicy !== 'full_on_delivery_failure'
       ) {
         throw new RefundExecutionError('invalid_state');
       }

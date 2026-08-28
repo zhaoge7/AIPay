@@ -146,6 +146,8 @@ PaymentAttempt 首次进入 succeeded、failed 或 unknown 时，Transaction 状
 
 V1 退款只允许 `full_on_delivery_failure` 服务对 paid/delivery_review/delivered 交易执行一次全额退款；Refund 通过复合外键绑定原 Transaction 金额和 succeeded PaymentAttempt。`rfd_` 稳定派生支付宝 `out_request_no`，create 的 `fund_change=Y` 才算成功，N/缺失进入 refund_review 并调用 `alipay.trade.fastpay.refund.query`，仅 `REFUND_SUCCESS` 恢复成功。每次 create/query 写独立 `refund_provider_calls`，Refund/Transaction/商户 Outbox 同事务；重复 create 返回同一 rfd_，不执行第二次退款。
 
+退款状态机同时接受 Delivery failed/timed_out 产生的 refund_pending，并使用 Delivery 快照 refundPolicy；Service 后续改价/改策略不影响在途退款。Provider 明确失败或未知均进入 refund_review，`retryCreate` 以同一 rfd_/out_request_no 回到 refund_pending，成功终结 refunded；已 succeeded 不可回退。`non_refundable` 的 delivery_review 不可创建 Refund。V1 API/服务没有部分金额参数，`refunds` 的 transaction amount 复合外键和 transaction_id 唯一约束再强制一次全额退款。
+
 当前沙箱只验证单一自营测试商户。生产多商户模式必须由实际收款商户完成产品签约，并通过服务商应用授权 `app_auth_token` 代调用；AIPay 不使用一个自有商户号代收第三方资金。支付宝 [AI 按量付费](https://aipay.alipay.com/docs/ai-receive/MACHINE_PAY.html) 与 API/MCP/Skill 最匹配，但它属于 402 `Payment-Needed`/`Payment-Proof` 协议，将在 Payment Proof 与 SDK 阶段接入，不替代本阶段的 Provider 适配器。
 
 ## Payment Proof V1
