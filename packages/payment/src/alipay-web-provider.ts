@@ -1,6 +1,6 @@
 import { TextDecoder } from 'node:util';
 
-import { AlipaySdk } from 'alipay-sdk';
+import { AlipayRequestError, AlipaySdk } from 'alipay-sdk';
 
 import { createMoney, formatUtcDateTime, type UtcDateTime } from '@aipay/contracts';
 
@@ -23,6 +23,44 @@ const officialGateways = new Set([
 const maximumAmountMinor = 10_000_000_000n;
 const maximumNotificationAgeMs = 26 * 60 * 60 * 1_000;
 const maximumFutureSkewMs = 5 * 60 * 1_000;
+const retryableAlipayCodes = new Set([
+  '20000',
+  'isp.unknow-error',
+  'aop.unknown-error',
+  'ACQ.SYSTEM_ERROR',
+  'ACQ.REFUND_CHARGE_ERROR',
+]);
+const declinedAlipayCodes = new Set([
+  'ACQ.BUYER_BALANCE_NOT_ENOUGH',
+  'ACQ.BUYER_BANKCARD_BALANCE_NOT_E',
+  'ACQ.BUYER_ENABLE_STATUS_FORBID',
+  'ACQ.BUYER_PAYMENT_AMOUNT_DAY_LIM',
+  'ACQ.BUYER_PAYMENT_AMOUNT_MONTH_L',
+  'ACQ.BUYER_SELLER_EQUAL',
+  'ACQ.ERROR_BALANCE_PAYMENT_DISABL',
+  'ACQ.ERROR_BUYER_CERTIFY_LEVEL_LI',
+  'ACQ.NO_PAYMENT_INSTRUMENTS_AVAIL',
+  'ACQ.PAYMENT_FAIL',
+  'ACQ.PAYMENT_REQUEST_HAS_RISK',
+]);
+const configurationAlipayCodes = new Set([
+  '40001',
+  '40006',
+  'isv.invalid-app-id',
+  'isv.invalid-signature',
+  'isv.permission-denied',
+  'ACQ.ACCESS_FORBIDDEN',
+  'ACQ.MERCHANT_AGREEMENT_NOT_EXIST',
+  'ACQ.PARTNER_ERROR',
+]);
+const invalidRequestAlipayCodes = new Set([
+  '40002',
+  'ACQ.CONTEXT_INCONSISTENT',
+  'ACQ.EXIST_FORBIDDEN_WORD',
+  'ACQ.INVALID_PARAMETER',
+  'ACQ.RISK_MERCHANT_IP_NOT_EXIST',
+  'ACQ.TOTAL_FEE_EXCEED',
+]);
 
 export interface AlipayWebPaymentProviderOptions {
   readonly appId: string;
@@ -70,6 +108,53 @@ function unavailable(operation: string): PaymentProviderError {
   });
 }
 
+function channelError(
+  kind: 'retryable' | 'declined' | 'invalid_request' | 'fatal',
+  code: string,
+): PaymentProviderError {
+  return new PaymentProviderError({ provider: 'alipay_web', kind, code });
+}
+
+function mapAlipayGatewayFailure(code: string | null, subCode: string | null) {
+  const candidates = [subCode, code].filter((value): value is string => value !== null);
+
+  if (candidates.some((value) => retryableAlipayCodes.has(value))) {
+    return channelError('retryable', 'CHANNEL_UNAVAILABLE');
+  }
+
+  if (candidates.some((value) => declinedAlipayCodes.has(value))) {
+    return channelError('declined', 'PAYMENT_DECLINED');
+  }
+
+  if (candidates.some((value) => invalidRequestAlipayCodes.has(value))) {
+    return channelError('invalid_request', 'INVALID_CHANNEL_REQUEST');
+  }
+
+  if (candidates.some((value) => configurationAlipayCodes.has(value))) {
+    return channelError('fatal', 'CHANNEL_CONFIGURATION_ERROR');
+  }
+
+  return channelError('fatal', 'CHANNEL_REJECTED');
+}
+
+function mapSdkFailure(error: unknown, operation: 'create' | 'query') {
+  if (error instanceof PaymentProviderError) {
+    return error;
+  }
+
+  if (
+    error instanceof AlipayRequestError &&
+    (error.code === 'response-signature-verify-error' ||
+      error.code === 'response-alipay-sn-verify-error')
+  ) {
+    return channelError('fatal', 'CHANNEL_RESPONSE_INVALID');
+  }
+
+  return operation === 'query'
+    ? channelError('retryable', 'CHANNEL_UNAVAILABLE')
+    : channelError('fatal', 'CHANNEL_CONFIGURATION_ERROR');
+}
+
 function outTradeNo(paymentAttemptId: string): string {
   return `AIPAY${paymentAttemptId.slice(4).replaceAll('-', '').toUpperCase()}`;
 }
@@ -82,11 +167,7 @@ function outTradeNoFromProviderId(value: string): string {
   const prefix = 'alipay_out_';
 
   if (!value.startsWith(prefix)) {
-    throw new PaymentProviderError({
-      provider: 'alipay_web',
-      kind: 'invalid_request',
-      code: 'INVALID_PROVIDER_PAYMENT_ID',
-    });
+    throw channelError('invalid_request', 'INVALID_PROVIDER_REFERENCE');
   }
 
   const orderNumber = value.slice(prefix.length);
@@ -285,11 +366,7 @@ function queryStatus(value: string) {
     case 'TRADE_CLOSED':
       return Object.freeze({ status: 'failed' as const, failureCode: 'TRADE_CLOSED' });
     default:
-      throw new PaymentProviderError({
-        provider: 'alipay_web',
-        kind: 'fatal',
-        code: 'QUERY_RESPONSE_INVALID',
-      });
+      throw channelError('fatal', 'CHANNEL_RESPONSE_INVALID');
   }
 }
 
@@ -334,24 +411,33 @@ export class AlipayWebPaymentProvider implements PaymentProvider {
     assertCnyCurrency(request.amount.currency);
 
     const orderNumber = outTradeNo(request.paymentAttemptId);
-    const actionUrl = this.#client.pageExec('alipay.trade.page.pay', 'GET', {
-      notifyUrl: request.callbackUrl,
-      ...(this.#returnUrl === undefined ? {} : { returnUrl: this.#returnUrl }),
-      bizContent: {
-        outTradeNo: orderNumber,
-        totalAmount: amountInYuan(request.amount.amountMinor),
-        subject: subject(request.description),
-        productCode: 'FAST_INSTANT_TRADE_PAY',
-      },
-    });
-    const target = new URL(actionUrl);
+    let actionUrl: string;
+
+    try {
+      actionUrl = this.#client.pageExec('alipay.trade.page.pay', 'GET', {
+        notifyUrl: request.callbackUrl,
+        ...(this.#returnUrl === undefined ? {} : { returnUrl: this.#returnUrl }),
+        bizContent: {
+          outTradeNo: orderNumber,
+          totalAmount: amountInYuan(request.amount.amountMinor),
+          subject: subject(request.description),
+          productCode: 'FAST_INSTANT_TRADE_PAY',
+        },
+      });
+    } catch (error) {
+      throw mapSdkFailure(error, 'create');
+    }
+
+    let target: URL;
+
+    try {
+      target = new URL(actionUrl);
+    } catch {
+      throw channelError('fatal', 'CHANNEL_RESPONSE_INVALID');
+    }
 
     if (!officialGateways.has(`${target.origin}${target.pathname}`)) {
-      throw new PaymentProviderError({
-        provider: this.name,
-        kind: 'fatal',
-        code: 'INVALID_ACTION_URL',
-      });
+      throw channelError('fatal', 'CHANNEL_RESPONSE_INVALID');
     }
 
     return Object.freeze({
@@ -375,12 +461,8 @@ export class AlipayWebPaymentProvider implements PaymentProvider {
         { bizContent: { outTradeNo: orderNumber } },
         { validateSign: true },
       );
-    } catch {
-      throw new PaymentProviderError({
-        provider: this.name,
-        kind: 'retryable',
-        code: 'QUERY_UNAVAILABLE',
-      });
+    } catch (error) {
+      throw mapSdkFailure(error, 'query');
     }
 
     const code = responseString(response, 'code');
@@ -398,22 +480,14 @@ export class AlipayWebPaymentProvider implements PaymentProvider {
         });
       }
 
-      throw new PaymentProviderError({
-        provider: this.name,
-        kind: 'fatal',
-        code: subCode ?? 'QUERY_FAILED',
-      });
+      throw mapAlipayGatewayFailure(code, subCode);
     }
 
     if (
       responseString(response, 'outTradeNo') !== orderNumber ||
       responseString(response, 'totalAmount') !== amountInYuan(request.amount.amountMinor)
     ) {
-      throw new PaymentProviderError({
-        provider: this.name,
-        kind: 'fatal',
-        code: 'QUERY_RESPONSE_MISMATCH',
-      });
+      throw channelError('fatal', 'CHANNEL_RESPONSE_INVALID');
     }
 
     const state = queryStatus(responseString(response, 'tradeStatus') ?? '');

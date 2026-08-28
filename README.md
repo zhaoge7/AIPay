@@ -142,6 +142,8 @@ PaymentAttempt 首次进入 succeeded、failed 或 unknown 时，Transaction 状
 
 主动查询使用稳定 merchant `out_trade_no` 调用 `alipay.trade.query`，并再次核对返回的 out_trade_no 与精确金额；`provider_reference` 保存可重复查询的 merchant order，`provider_transaction_id` 单独保存支付宝 trade_no，二者不互相覆盖。`ACQ.TRADE_NOT_EXIST` 保持 pending；查询网络/协议失败进入 unknown/review，但已 succeeded/failed 的终态永不被后续查询或回调回退。每次查询及支付宝交易号都写入 `payment_provider_calls`。
 
+支付宝外部错误不得穿透核心。适配器只输出稳定码：`CHANNEL_UNAVAILABLE`（可重试系统/网络故障）、`PAYMENT_DECLINED`（余额/限额/风控等用户拒绝）、`INVALID_CHANNEL_REQUEST`（参数/金额）、`CHANNEL_CONFIGURATION_ERROR`（权限/APP_ID/签约/密钥）、`CHANNEL_RESPONSE_INVALID`（验签或订单金额错绑）、`CHANNEL_REJECTED`（未知非重试拒绝）和 `INVALID_PROVIDER_REFERENCE`。供应商 `code/sub_code/sub_msg` 与 SDK 文案不写数据库、不返回客户端。
+
 当前沙箱只验证单一自营测试商户。生产多商户模式必须由实际收款商户完成产品签约，并通过服务商应用授权 `app_auth_token` 代调用；AIPay 不使用一个自有商户号代收第三方资金。支付宝 [AI 按量付费](https://aipay.alipay.com/docs/ai-receive/MACHINE_PAY.html) 与 API/MCP/Skill 最匹配，但它属于 402 `Payment-Needed`/`Payment-Proof` 协议，将在 Payment Proof 与 SDK 阶段接入，不替代本阶段的 Provider 适配器。
 
 ## 环境变量

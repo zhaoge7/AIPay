@@ -249,7 +249,8 @@ test('records every Provider create/retry/query call and its result', async (con
   failAlipayQuery = true;
   await assert.rejects(
     execution.query(alipayPending.paymentAttemptId, alipay),
-    (error) => error instanceof PaymentExecutionError && error.providerCode === 'QUERY_UNAVAILABLE',
+    (error) =>
+      error instanceof PaymentExecutionError && error.providerCode === 'CHANNEL_UNAVAILABLE',
   );
   assert.equal(alipayClientCalls.length, 2);
 

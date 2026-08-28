@@ -228,7 +228,7 @@ test('maps not-created orders to pending and rejects query failures or mismatche
   ]) {
     await assert.rejects(
       fixture(clientReturning(response)).alipay.queryPayment(queryRequest),
-      (error) => error instanceof PaymentProviderError && error.code === 'QUERY_RESPONSE_MISMATCH',
+      (error) => error instanceof PaymentProviderError && error.code === 'CHANNEL_RESPONSE_INVALID',
     );
   }
 
@@ -237,8 +237,49 @@ test('maps not-created orders to pending and rejects query failures or mismatche
     (error) =>
       error instanceof PaymentProviderError &&
       error.kind === 'retryable' &&
-      error.code === 'QUERY_UNAVAILABLE' &&
+      error.code === 'CHANNEL_UNAVAILABLE' &&
       !error.message.includes('network secret'),
+  );
+});
+
+test('maps Alipay gateway codes to stable internal handling classes', async () => {
+  const cases = [
+    ['20000', 'isp.unknow-error', 'retryable', 'CHANNEL_UNAVAILABLE'],
+    ['40004', 'ACQ.SYSTEM_ERROR', 'retryable', 'CHANNEL_UNAVAILABLE'],
+    ['40004', 'ACQ.BUYER_BALANCE_NOT_ENOUGH', 'declined', 'PAYMENT_DECLINED'],
+    ['40004', 'ACQ.INVALID_PARAMETER', 'invalid_request', 'INVALID_CHANNEL_REQUEST'],
+    ['40004', 'ACQ.ACCESS_FORBIDDEN', 'fatal', 'CHANNEL_CONFIGURATION_ERROR'],
+    ['40004', 'ACQ.NEW_UNDOCUMENTED_CODE', 'fatal', 'CHANNEL_REJECTED'],
+  ];
+
+  for (const [code, subCode, kind, stableCode] of cases) {
+    await assert.rejects(
+      fixture(
+        clientReturning({ code, subCode, subMsg: 'vendor secret that must not escape' }),
+      ).alipay.queryPayment(queryRequest),
+      (error) =>
+        error instanceof PaymentProviderError &&
+        error.kind === kind &&
+        error.code === stableCode &&
+        !error.message.includes(subCode) &&
+        !error.message.includes('vendor secret'),
+    );
+  }
+});
+
+test('maps local page-pay SDK failures without exposing key or vendor details', async () => {
+  const client = clientReturning({ code: '10000' });
+  client.pageExec = () => {
+    throw new Error('private key parse secret');
+  };
+
+  await assert.rejects(
+    fixture(client).alipay.createPayment(request),
+    (error) =>
+      error instanceof PaymentProviderError &&
+      error.kind === 'fatal' &&
+      error.code === 'CHANNEL_CONFIGURATION_ERROR' &&
+      !error.message.includes('private key'),
   );
 });
 
