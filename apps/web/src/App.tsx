@@ -8,6 +8,7 @@ import {
   LockKeyhole,
   LogOut,
   Menu,
+  PackageOpen,
   ShieldCheck,
   UserRound,
   X,
@@ -26,6 +27,7 @@ import {
 import { AgentsPage } from './AgentsPage.js';
 import { ConsoleApiError } from './api.js';
 import { useAuth } from './auth.js';
+import { ServicesPage } from './ServicesPage.js';
 
 function FullPageStatus() {
   return (
@@ -292,6 +294,13 @@ function ConsoleShell() {
             <Bot size={18} />
             Agent
           </NavLink>
+          <NavLink
+            className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}
+            to="/services"
+          >
+            <PackageOpen size={18} />
+            服务与定价
+          </NavLink>
         </nav>
         <div className="nav-footer">
           <p>{developer.email}</p>
@@ -332,7 +341,11 @@ function ConsoleShell() {
             <Menu size={20} />
           </button>
           <span className="topbar-title">
-            {location.pathname === '/agents' ? 'Agent 管理' : '控制台'}
+            {location.pathname === '/agents'
+              ? 'Agent 管理'
+              : location.pathname === '/services'
+                ? '服务与定价'
+                : '控制台'}
           </span>
           <span className="environment-label">本地环境</span>
         </header>
@@ -351,6 +364,7 @@ export function App() {
       <Route element={<ConsoleShell />}>
         <Route path="/" element={<Overview />} />
         <Route path="/agents" element={<AgentsPage />} />
+        <Route path="/services" element={<ServicesPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

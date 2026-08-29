@@ -18,6 +18,38 @@ export interface AgentView {
   readonly updatedAt: string;
 }
 
+export interface MerchantView {
+  readonly merchantId: string;
+  readonly name: string;
+  readonly callbackUrl: string;
+  readonly status: 'active' | 'suspended' | 'closed';
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface ServiceView {
+  readonly serviceId: string;
+  readonly merchantId: string;
+  readonly type: 'api' | 'mcp' | 'skill';
+  readonly name: string;
+  readonly category: string;
+  readonly unit: string;
+  readonly unitPrice: Readonly<{ currency: 'CNY'; amountMinor: string }>;
+  readonly refundPolicy: 'full_on_delivery_failure' | 'non_refundable';
+  readonly status: 'enabled' | 'disabled';
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface ServiceInput {
+  readonly type: ServiceView['type'];
+  readonly name: string;
+  readonly category: string;
+  readonly unit: string;
+  readonly unitPrice: Readonly<{ currency: 'CNY'; amountMinor: string }>;
+  readonly refundPolicy: ServiceView['refundPolicy'];
+}
+
 interface SuccessEnvelope<Data> {
   readonly data: Data;
   readonly meta: Readonly<{ traceId: string }>;
@@ -112,4 +144,31 @@ export const consoleApi = Object.freeze({
     }),
   revokeAgent: (agentId: string) =>
     request<AgentView>(`/v1/agents/${agentId}`, { method: 'DELETE' }),
+  merchants: () => request<readonly MerchantView[]>('/v1/merchants'),
+  createMerchant: (name: string, callbackUrl: string) =>
+    request<MerchantView>('/v1/merchants', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name, callbackUrl }),
+    }),
+  services: (merchantId: string) =>
+    request<readonly ServiceView[]>(`/v1/merchants/${merchantId}/services`),
+  createService: (merchantId: string, input: ServiceInput) =>
+    request<ServiceView>(`/v1/merchants/${merchantId}/services`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(input),
+    }),
+  updateService: (
+    merchantId: string,
+    serviceId: string,
+    input: Partial<ServiceInput> & {
+      readonly status?: ServiceView['status'];
+    },
+  ) =>
+    request<ServiceView>(`/v1/merchants/${merchantId}/services/${serviceId}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(input),
+    }),
 });
