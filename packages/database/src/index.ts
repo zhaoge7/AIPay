@@ -332,6 +332,27 @@ export interface ReconciliationItemTable {
   createdAt: Generated<Date>;
 }
 
+export interface A2MOrderTable {
+  id: Generated<string>;
+  outTradeNo: string;
+  merchantId: string;
+  serviceId: string;
+  currency: Generated<'CNY'>;
+  amountMinor: string;
+  resourceId: string;
+  goodsName: string;
+  payBefore: Date;
+  orderStatus: Generated<'pending_payment' | 'paid'>;
+  fulfillmentStatus: Generated<'unfulfilled' | 'pending_confirm' | 'fulfilled'>;
+  providerTradeNo: string | null;
+  paymentProofHash: Uint8Array | null;
+  serviceResult: unknown;
+  fulfillmentErrorCode: string | null;
+  fulfilledAt: Date | null;
+  createdAt: Generated<Date>;
+  updatedAt: Generated<Date>;
+}
+
 export interface OutboxEventTable {
   id: Generated<string>;
   aggregateType: string;
@@ -412,6 +433,7 @@ export interface AIPayDatabase {
   deliveries: DeliveryTable;
   reconciliationRuns: ReconciliationRunTable;
   reconciliationItems: ReconciliationItemTable;
+  a2mOrders: A2MOrderTable;
   outboxEvents: OutboxEventTable;
   webhookDeliveries: WebhookDeliveryTable;
   webhookDeliveryAttempts: WebhookDeliveryAttemptTable;

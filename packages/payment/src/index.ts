@@ -150,6 +150,12 @@ export {
   type AlipayWebPaymentProviderOptions,
 } from './alipay-web-provider.js';
 export {
+  AlipayA2MClient,
+  type A2MBillSigningInput,
+  type A2MPaymentVerification,
+  type AlipayA2MClientOptions,
+} from './alipay-a2m.js';
+export {
   FakePaymentProvider,
   type FakeOutcome,
   type FakeProviderOptions,

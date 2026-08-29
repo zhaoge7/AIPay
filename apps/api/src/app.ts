@@ -6,6 +6,8 @@ import type { PaymentProvider } from '@aipay/payment';
 import Fastify, { type FastifyError, type FastifyReply } from 'fastify';
 
 import { registerAgentRoutes } from './agents/routes.js';
+import { registerA2MRoutes } from './a2m/routes.js';
+import type { A2MService } from './a2m/service.js';
 import { registerAgentSignatureRoutes } from './agent-signatures/routes.js';
 import { registerApiKeyRoutes } from './api-keys/routes.js';
 import { AuthError, AuthService, type AuthResult } from './auth/service.js';
@@ -48,6 +50,7 @@ export interface BuildAppOptions {
   readonly mandateIssuer?: MandateIssuer;
   readonly alipayProvider?: PaymentProvider;
   readonly paymentProofIssuer?: PaymentProofIssuer;
+  readonly a2mService?: A2MService;
 }
 
 function sendAuthError(reply: FastifyReply, traceId: string, error: AuthError) {
@@ -110,6 +113,9 @@ export async function buildApp(options: BuildAppOptions) {
   app.decorateRequest('authenticatedSigningKeyId', null);
   registerApiKeyRoutes(app, options.database);
   registerAgentRoutes(app, options.database);
+  if (options.a2mService !== undefined) {
+    registerA2MRoutes(app, options.a2mService);
+  }
   registerAgentSignatureRoutes(app, options.database);
   registerMerchantRoutes(app, options.database);
   registerDeliveryReceiptRoutes(app, options.database);

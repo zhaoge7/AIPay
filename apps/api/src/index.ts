@@ -3,8 +3,11 @@ import { pathToFileURL } from 'node:url';
 
 import { loadApiConfig, loadDatabaseConfig, loadMandateIssuerConfig } from '@aipay/config';
 import { createDatabase } from '@aipay/database';
+import { AlipayA2MClient } from '@aipay/payment';
 
 import { buildApp } from './app.js';
+import { loadA2MRuntimeConfig } from './a2m/config.js';
+import { A2MService } from './a2m/service.js';
 import { MandateIssuer } from './mandates/issuer.js';
 
 export const config = loadApiConfig(process.env);
@@ -13,11 +16,14 @@ export async function startApi() {
   const databaseConfig = loadDatabaseConfig(process.env);
   const database = createDatabase(databaseConfig.url);
   const mandateIssuer = new MandateIssuer(database, loadMandateIssuerConfig(process.env));
+  const a2mConfig = await loadA2MRuntimeConfig(process.env);
+  const a2mService = new A2MService(database, new AlipayA2MClient(a2mConfig), a2mConfig);
   const app = await buildApp({
     database,
     secureCookies: config.environment === 'production',
     logger: true,
     mandateIssuer,
+    a2mService,
   });
 
   app.addHook('onClose', async () => database.destroy());
@@ -53,4 +59,6 @@ export { DeliveryReceiptError, DeliveryReceiptService } from './deliveries/recei
 export { DeliveryTimeoutService } from './deliveries/timeouts.js';
 export { ReconciliationService } from './reconciliation/service.js';
 export { TimelineError, TransactionTimelineService } from './timeline/service.js';
+export { loadA2MRuntimeConfig, type A2MRuntimeConfig } from './a2m/config.js';
+export { A2MError, A2MService, type A2MClientPort } from './a2m/service.js';
 export { ARGON2ID_OPTIONS, hashPassword, verifyPassword } from './auth/password.js';
