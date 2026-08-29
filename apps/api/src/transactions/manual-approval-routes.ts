@@ -56,6 +56,15 @@ export function registerManualApprovalRoutes(app: FastifyInstance, database: Dat
   const service = new ManualApprovalService(database);
   const requireDeveloper = createRequireDeveloper(database);
 
+  app.get(
+    '/v1/transactions/confirmations',
+    { preHandler: requireDeveloper },
+    async (request, reply) => {
+      const result = await service.listPending(principalId(request));
+      return reply.send(createApiSuccess(result, createTraceId()));
+    },
+  );
+
   app.post<{ Params: Params; Body: Body }>(
     '/v1/transactions/:transactionId/confirmation',
     { schema: { params: paramsSchema, body: bodySchema }, preHandler: requireDeveloper },

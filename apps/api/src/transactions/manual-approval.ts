@@ -47,6 +47,17 @@ export interface ApprovalTransactionView {
   readonly updatedAt: string;
 }
 
+export interface PendingApprovalView extends ApprovalTransactionView {
+  readonly agentName: string;
+  readonly merchantName: string;
+  readonly serviceName: string;
+  readonly mandatePurpose: string;
+  readonly totalBudget: Readonly<{ currency: 'CNY'; amountMinor: string }>;
+  readonly spentAmount: Readonly<{ currency: 'CNY'; amountMinor: string }>;
+  readonly reservedAmount: Readonly<{ currency: 'CNY'; amountMinor: string }>;
+  readonly remainingBudget: Readonly<{ currency: 'CNY'; amountMinor: string }>;
+}
+
 interface ApprovalTransactionRow {
   readonly id: string;
   readonly quoteId: string;
@@ -130,6 +141,53 @@ export class ManualApprovalService {
   constructor(database: Database, now: () => Date = () => new Date()) {
     this.#database = database;
     this.#now = now;
+  }
+
+  async listPending(
+    principalId: ResourceId<'dev'>,
+  ): Promise<readonly Readonly<PendingApprovalView>[]> {
+    const rows = await this.#database
+      .selectFrom('transactions')
+      .innerJoin('agents', 'agents.id', 'transactions.agentId')
+      .innerJoin('merchants', 'merchants.id', 'transactions.merchantId')
+      .innerJoin('services', 'services.id', 'transactions.serviceId')
+      .innerJoin('mandates', 'mandates.id', 'transactions.mandateId')
+      .select([
+        ...transactionColumns.map((column) => `transactions.${column}` as const),
+        'agents.name as agentName',
+        'merchants.name as merchantName',
+        'services.name as serviceName',
+        'mandates.purpose as mandatePurpose',
+        'mandates.totalBudgetAmountMinor',
+        'mandates.spentAmountMinor',
+        'mandates.reservedAmountMinor',
+      ])
+      .where('transactions.principalId', '=', getResourceUuid(principalId))
+      .where('transactions.status', '=', 'requires_confirmation')
+      .orderBy('transactions.createdAt', 'asc')
+      .orderBy('transactions.id', 'asc')
+      .execute();
+
+    return Object.freeze(
+      rows.map((row) => {
+        const transaction = toView(row);
+        const remaining =
+          BigInt(row.totalBudgetAmountMinor) -
+          BigInt(row.spentAmountMinor) -
+          BigInt(row.reservedAmountMinor);
+        return Object.freeze({
+          ...transaction,
+          agentName: row.agentName,
+          merchantName: row.merchantName,
+          serviceName: row.serviceName,
+          mandatePurpose: row.mandatePurpose,
+          totalBudget: createMoney('CNY', row.totalBudgetAmountMinor),
+          spentAmount: createMoney('CNY', row.spentAmountMinor),
+          reservedAmount: createMoney('CNY', row.reservedAmountMinor),
+          remainingBudget: createMoney('CNY', remaining.toString()),
+        });
+      }),
+    );
   }
 
   async createPendingIntent(

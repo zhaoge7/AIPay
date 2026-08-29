@@ -2,6 +2,7 @@ import {
   Activity,
   ArrowRight,
   Bot,
+  BadgeCheck,
   CheckCircle2,
   Gauge,
   KeyRound,
@@ -30,6 +31,7 @@ import { ConsoleApiError } from './api.js';
 import { useAuth } from './auth.js';
 import { ServicesPage } from './ServicesPage.js';
 import { MandatesPage } from './MandatesPage.js';
+import { ConfirmationsPage } from './ConfirmationsPage.js';
 
 function FullPageStatus() {
   return (
@@ -310,6 +312,13 @@ function ConsoleShell() {
             <ScrollText size={18} />
             授权
           </NavLink>
+          <NavLink
+            className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}
+            to="/confirmations"
+          >
+            <BadgeCheck size={18} />
+            人工确认
+          </NavLink>
         </nav>
         <div className="nav-footer">
           <p>{developer.email}</p>
@@ -356,7 +365,9 @@ function ConsoleShell() {
                 ? '服务与定价'
                 : location.pathname === '/mandates'
                   ? '授权管理'
-                  : '控制台'}
+                  : location.pathname === '/confirmations'
+                    ? '人工确认'
+                    : '控制台'}
           </span>
           <span className="environment-label">本地环境</span>
         </header>
@@ -377,6 +388,7 @@ export function App() {
         <Route path="/agents" element={<AgentsPage />} />
         <Route path="/services" element={<ServicesPage />} />
         <Route path="/mandates" element={<MandatesPage />} />
+        <Route path="/confirmations" element={<ConfirmationsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

@@ -163,6 +163,20 @@ test('creates pending transactions above threshold without executing payment', a
     .executeTakeFirstOrThrow();
   assert.equal(Number(attemptsBefore.count), 0);
   assert.equal(Number(reservationsBefore.count), 0);
+  const pendingList = await approval.listPending(parseResourceId(`dev_${developer.id}`, 'dev'));
+  assert.equal(pendingList.length, 1);
+  assert.equal(pendingList[0].agentName, 'Approval Agent');
+  assert.equal(pendingList[0].merchantName, 'Approval Merchant');
+  assert.equal(pendingList[0].serviceName, 'Approval Service');
+  assert.deepEqual(pendingList[0].amount, { currency: 'CNY', amountMinor: '600' });
+  assert.deepEqual(pendingList[0].remainingBudget, {
+    currency: 'CNY',
+    amountMinor: '5000',
+  });
+  assert.deepEqual(
+    await approval.listPending(parseResourceId(`dev_${otherDeveloper.id}`, 'dev')),
+    [],
+  );
 
   await database
     .updateTable('mandates')
@@ -217,6 +231,7 @@ test('creates pending transactions above threshold without executing payment', a
     'reject',
   );
   assert.equal(cancelled.status, 'cancelled');
+  assert.deepEqual(await approval.listPending(parseResourceId(`dev_${developer.id}`, 'dev')), []);
 
   const quote500 = await quote('500');
   await assert.rejects(

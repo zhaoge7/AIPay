@@ -1136,6 +1136,132 @@ input:focus-visible {
   overflow-wrap: anywhere;
 }
 
+.icon-command.bordered {
+  border: 1px solid #cbd4d1;
+  background: #ffffff;
+}
+
+.confirmation-list {
+  display: grid;
+  gap: 12px;
+}
+
+.confirmation-item {
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #ffffff;
+}
+
+.confirmation-item > header {
+  min-height: 102px;
+  padding: 18px 20px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.pending-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #8c5c1e;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.confirmation-item h2 {
+  margin: 8px 0 0;
+  font-size: 18px;
+}
+
+.confirmation-item header p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.approval-amount {
+  color: #7f3f31;
+  font-size: 25px;
+  white-space: nowrap;
+}
+
+.confirmation-facts {
+  margin: 0;
+  padding: 18px 20px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.confirmation-facts dt {
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.confirmation-facts dd {
+  min-width: 0;
+  margin: 0;
+  color: #303a38;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.confirmation-facts dd span {
+  display: block;
+  margin-top: 5px;
+  overflow: hidden;
+  color: #7b8583;
+  font-size: 10px;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.budget-value {
+  color: #276847 !important;
+}
+
+.confirmation-item > footer {
+  min-height: 58px;
+  padding: 10px 14px 10px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border-top: 1px solid var(--line);
+  background: #fafbfb;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.confirmation-item footer > div {
+  display: flex;
+  gap: 8px;
+}
+
+.secondary-command.reject {
+  color: #884139;
+}
+
+.decision-summary {
+  padding: 20px 18px 4px;
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 12px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.decision-summary strong {
+  color: #7f3f31;
+  font-size: 19px;
+}
+
 .sr-only {
   position: absolute;
   width: 1px;
@@ -1324,7 +1450,26 @@ input:focus-visible {
 
   .form-grid.three,
   .detail-grid,
-  .detail-grid.four {
+  .detail-grid.four,
+  .confirmation-facts {
+    grid-template-columns: 1fr;
+  }
+
+  .confirmation-item > header,
+  .confirmation-item > footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .confirmation-item footer > div {
+    width: 100%;
+  }
+
+  .confirmation-item footer button {
+    flex: 1;
+  }
+
+  .decision-summary {
     grid-template-columns: 1fr;
   }
 }

@@ -92,6 +92,27 @@ export interface MandateInput {
   readonly instructionHash: string;
 }
 
+export interface PendingApprovalView {
+  readonly transactionId: string;
+  readonly quoteId: string;
+  readonly mandateId: string;
+  readonly agentId: string;
+  readonly agentName: string;
+  readonly merchantId: string;
+  readonly merchantName: string;
+  readonly serviceId: string;
+  readonly serviceName: string;
+  readonly mandatePurpose: string;
+  readonly amount: MoneyView;
+  readonly totalBudget: MoneyView;
+  readonly spentAmount: MoneyView;
+  readonly reservedAmount: MoneyView;
+  readonly remainingBudget: MoneyView;
+  readonly status: 'requires_confirmation';
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
 interface SuccessEnvelope<Data> {
   readonly data: Data;
   readonly meta: Readonly<{ traceId: string }>;
@@ -225,4 +246,14 @@ export const consoleApi = Object.freeze({
       method: 'POST',
     }),
   mandate: (mandateId: string) => request<MandateView>(`/v1/mandates/${mandateId}`),
+  confirmations: () => request<readonly PendingApprovalView[]>('/v1/transactions/confirmations'),
+  decideConfirmation: (transactionId: string, action: 'approve' | 'reject') =>
+    request<Readonly<{ readonly transactionId: string; readonly status: string }>>(
+      `/v1/transactions/${transactionId}/confirmation`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action }),
+      },
+    ),
 });
