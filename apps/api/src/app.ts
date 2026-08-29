@@ -11,6 +11,7 @@ import type { A2MService } from './a2m/service.js';
 import { registerAgentSignatureRoutes } from './agent-signatures/routes.js';
 import { registerApiKeyRoutes } from './api-keys/routes.js';
 import { AuthError, AuthService, type AuthResult } from './auth/service.js';
+import { createRequireSession } from './auth/session.js';
 import { createTraceId, sendProblem } from './http/problem.js';
 import { registerMerchantRoutes } from './merchants/routes.js';
 import { registerDeliveryReceiptRoutes } from './deliveries/routes.js';
@@ -100,6 +101,7 @@ export async function buildApp(options: BuildAppOptions) {
     ajv: { customOptions: { removeAdditional: false, coerceTypes: false } },
   });
   const authService = new AuthService(options.database);
+  const requireSession = createRequireSession(options.database);
   const secureCookies = options.secureCookies ?? false;
 
   await app.register(cookie);
@@ -203,6 +205,35 @@ export async function buildApp(options: BuildAppOptions) {
       }
     },
   );
+
+  app.get('/v1/auth/session', { preHandler: requireSession }, async (request, reply) => {
+    if (request.authenticatedDeveloperId === null) {
+      throw new Error('Authenticated developer is missing after pre-handler');
+    }
+
+    const developer = await authService.current(request.authenticatedDeveloperId);
+    return reply.send(createApiSuccess(developer, createTraceId()));
+  });
+
+  app.post('/v1/auth/logout', { preHandler: requireSession }, async (request, reply) => {
+    const sessionToken = request.cookies.aipay_session;
+
+    if (typeof sessionToken !== 'string') {
+      return sendProblem(reply, createApiProblem('UNAUTHENTICATED', createTraceId()));
+    }
+
+    try {
+      await authService.logout(sessionToken);
+      reply.clearCookie('aipay_session', { path: '/' });
+      return await reply.send(createApiSuccess({ loggedOut: true }, createTraceId()));
+    } catch (error) {
+      if (error instanceof AuthError) {
+        return sendAuthError(reply, createTraceId(), error);
+      }
+
+      throw error;
+    }
+  });
 
   return app;
 }

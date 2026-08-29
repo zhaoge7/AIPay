@@ -2,3 +2,5 @@ packages:
   - apps/*
   - examples/*
   - packages/*
+minimumReleaseAgeExclude:
+  - lucide-react@1.37.0

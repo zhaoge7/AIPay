@@ -125,6 +125,30 @@ test('registers and logs in a local developer without storing credentials in pla
     .select(({ fn }) => fn.countAll().as('count'))
     .executeTakeFirstOrThrow();
   assert.equal(Number(sessions.count), 2);
+
+  const currentSession = await app.inject({
+    method: 'GET',
+    url: '/v1/auth/session',
+    headers: { cookie: `aipay_session=${encodeURIComponent(firstToken)}` },
+  });
+  assert.equal(currentSession.statusCode, 200);
+  assert.equal(parseBody(currentSession).data.email, 'developer@example.com');
+
+  const logout = await app.inject({
+    method: 'POST',
+    url: '/v1/auth/logout',
+    headers: { cookie: `aipay_session=${encodeURIComponent(firstToken)}` },
+  });
+  assert.equal(logout.statusCode, 200);
+  assert.equal(parseBody(logout).data.loggedOut, true);
+  assert.match(logout.headers['set-cookie'], /aipay_session=;/u);
+
+  const revokedSession = await app.inject({
+    method: 'GET',
+    url: '/v1/auth/session',
+    headers: { cookie: `aipay_session=${encodeURIComponent(firstToken)}` },
+  });
+  assert.equal(revokedSession.statusCode, 401);
 });
 
 test('rejects malformed registration bodies and weak credentials', async (context) => {
