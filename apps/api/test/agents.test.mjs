@@ -83,6 +83,7 @@ test('registers an Agent public key and manages its enabled state with ownership
   assert.equal(agent.status, 'enabled');
   assert.equal(agent.signingKey.algorithm, 'ed25519');
   assert.equal(agent.signingKey.publicKey, keyMaterial.publicKey);
+  assert.equal(agent.signingKey.status, 'active');
   assert.equal(created.body.includes(keyMaterial.privateKeyMarker), false);
 
   const storedAgent = await database
@@ -176,4 +177,61 @@ test('registers an Agent public key and manages its enabled state with ownership
     headers: { cookie: otherCookie },
   });
   assert.deepEqual(parseBody(otherList).data, []);
+
+  const rotated = await app.inject({
+    method: 'POST',
+    url: `/v1/agents/${agent.agentId}/rotate-key`,
+    headers: { cookie: ownerCookie },
+    payload: { publicKey: secondKey.publicKey },
+  });
+  assert.equal(rotated.statusCode, 200);
+  const rotatedAgent = parseBody(rotated).data;
+  assert.notEqual(rotatedAgent.signingKey.keyId, agent.signingKey.keyId);
+  assert.equal(rotatedAgent.signingKey.publicKey, secondKey.publicKey);
+  assert.equal(rotatedAgent.signingKey.status, 'active');
+  const storedKeys = await database
+    .selectFrom('signingKeys')
+    .select(['id', 'status', 'revokedAt'])
+    .where('agentId', '=', storedAgent.id)
+    .orderBy('createdAt', 'asc')
+    .execute();
+  assert.deepEqual(
+    storedKeys.map((key) => [key.status, key.revokedAt === null]),
+    [
+      ['revoked', false],
+      ['active', true],
+    ],
+  );
+
+  const revoked = await app.inject({
+    method: 'DELETE',
+    url: `/v1/agents/${agent.agentId}`,
+    headers: { cookie: ownerCookie },
+  });
+  assert.equal(revoked.statusCode, 200);
+  assert.equal(parseBody(revoked).data.status, 'revoked');
+  assert.equal(parseBody(revoked).data.signingKey.status, 'revoked');
+
+  const repeatedRevoke = await app.inject({
+    method: 'DELETE',
+    url: `/v1/agents/${agent.agentId}`,
+    headers: { cookie: ownerCookie },
+  });
+  assert.equal(repeatedRevoke.statusCode, 200);
+  assert.deepEqual(parseBody(repeatedRevoke).data, parseBody(revoked).data);
+
+  const revokedList = await app.inject({
+    method: 'GET',
+    url: '/v1/agents',
+    headers: { cookie: ownerCookie },
+  });
+  assert.deepEqual(parseBody(revokedList).data, [parseBody(revoked).data]);
+
+  const rotateRevoked = await app.inject({
+    method: 'POST',
+    url: `/v1/agents/${agent.agentId}/rotate-key`,
+    headers: { cookie: ownerCookie },
+    payload: { publicKey: generateEd25519KeyMaterial().publicKey },
+  });
+  assert.equal(rotateRevoked.statusCode, 403);
 });

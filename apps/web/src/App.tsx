@@ -1,6 +1,7 @@
 import {
   Activity,
   ArrowRight,
+  Bot,
   CheckCircle2,
   Gauge,
   KeyRound,
@@ -12,8 +13,17 @@ import {
   X,
 } from 'lucide-react';
 import { useState, type SyntheticEvent } from 'react';
-import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import {
+  Navigate,
+  NavLink,
+  Outlet,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from 'react-router-dom';
 
+import { AgentsPage } from './AgentsPage.js';
 import { ConsoleApiError } from './api.js';
 import { useAuth } from './auth.js';
 
@@ -267,10 +277,21 @@ function ConsoleShell() {
           </button>
         </div>
         <nav aria-label="主导航">
-          <a className="nav-item active" href="/" aria-current="page">
+          <NavLink
+            className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}
+            to="/"
+            end
+          >
             <Gauge size={18} />
             概览
-          </a>
+          </NavLink>
+          <NavLink
+            className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}
+            to="/agents"
+          >
+            <Bot size={18} />
+            Agent
+          </NavLink>
         </nav>
         <div className="nav-footer">
           <p>{developer.email}</p>
@@ -310,11 +331,13 @@ function ConsoleShell() {
           >
             <Menu size={20} />
           </button>
-          <span className="topbar-title">控制台</span>
+          <span className="topbar-title">
+            {location.pathname === '/agents' ? 'Agent 管理' : '控制台'}
+          </span>
           <span className="environment-label">本地环境</span>
         </header>
         <main className="content-area">
-          <Overview />
+          <Outlet />
         </main>
       </div>
     </div>
@@ -325,7 +348,10 @@ export function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/" element={<ConsoleShell />} />
+      <Route element={<ConsoleShell />}>
+        <Route path="/" element={<Overview />} />
+        <Route path="/agents" element={<AgentsPage />} />
+      </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

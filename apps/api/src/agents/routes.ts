@@ -34,6 +34,12 @@ const statusBodySchema = {
   required: ['status'],
   properties: { status: { type: 'string', enum: ['enabled', 'disabled'] } },
 } as const;
+const rotateKeyBodySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['publicKey'],
+  properties: { publicKey: { type: 'string', pattern: '^[A-Za-z0-9_-]{43}$' } },
+} as const;
 
 interface CreateBody {
   readonly name: string;
@@ -46,6 +52,10 @@ interface AgentParams {
 
 interface StatusBody {
   readonly status: 'enabled' | 'disabled';
+}
+
+interface RotateKeyBody {
+  readonly publicKey: string;
 }
 
 function getDeveloperId(request: FastifyRequest) {
@@ -116,6 +126,54 @@ export function registerAgentRoutes(app: FastifyInstance, database: Database): v
           getDeveloperId(request),
           parseResourceId(request.params.agentId, 'agt'),
           request.body.status,
+        );
+        return await reply.send(createApiSuccess(result, traceId));
+      } catch (error) {
+        if (error instanceof AgentError) {
+          return sendAgentError(reply, traceId, error);
+        }
+
+        throw error;
+      }
+    },
+  );
+
+  app.post<{ Params: AgentParams; Body: RotateKeyBody }>(
+    '/v1/agents/:agentId/rotate-key',
+    {
+      schema: { params: paramsSchema, body: rotateKeyBodySchema },
+      preHandler: requireDeveloper,
+    },
+    async (request, reply) => {
+      const traceId = createTraceId();
+
+      try {
+        const result = await service.rotateKey(
+          getDeveloperId(request),
+          parseResourceId(request.params.agentId, 'agt'),
+          request.body.publicKey,
+        );
+        return await reply.send(createApiSuccess(result, traceId));
+      } catch (error) {
+        if (error instanceof AgentError) {
+          return sendAgentError(reply, traceId, error);
+        }
+
+        throw error;
+      }
+    },
+  );
+
+  app.delete<{ Params: AgentParams }>(
+    '/v1/agents/:agentId',
+    { schema: { params: paramsSchema }, preHandler: requireDeveloper },
+    async (request, reply) => {
+      const traceId = createTraceId();
+
+      try {
+        const result = await service.revoke(
+          getDeveloperId(request),
+          parseResourceId(request.params.agentId, 'agt'),
         );
         return await reply.send(createApiSuccess(result, traceId));
       } catch (error) {

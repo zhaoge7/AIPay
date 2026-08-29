@@ -4,6 +4,20 @@ export interface DeveloperSession {
   readonly createdAt: string;
 }
 
+export interface AgentView {
+  readonly agentId: string;
+  readonly name: string;
+  readonly status: 'enabled' | 'disabled' | 'revoked';
+  readonly signingKey: Readonly<{
+    keyId: string;
+    algorithm: 'ed25519';
+    publicKey: string;
+    status: 'active' | 'revoked';
+  }>;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
 interface SuccessEnvelope<Data> {
   readonly data: Data;
   readonly meta: Readonly<{ traceId: string }>;
@@ -77,4 +91,25 @@ export const consoleApi = Object.freeze({
       body: JSON.stringify({ email, password }),
     }),
   logout: () => request<{ readonly loggedOut: true }>('/v1/auth/logout', { method: 'POST' }),
+  agents: () => request<readonly AgentView[]>('/v1/agents'),
+  createAgent: (name: string, publicKey: string) =>
+    request<AgentView>('/v1/agents', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name, publicKey }),
+    }),
+  setAgentStatus: (agentId: string, status: 'enabled' | 'disabled') =>
+    request<AgentView>(`/v1/agents/${agentId}/status`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ status }),
+    }),
+  rotateAgentKey: (agentId: string, publicKey: string) =>
+    request<AgentView>(`/v1/agents/${agentId}/rotate-key`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ publicKey }),
+    }),
+  revokeAgent: (agentId: string) =>
+    request<AgentView>(`/v1/agents/${agentId}`, { method: 'DELETE' }),
 });
