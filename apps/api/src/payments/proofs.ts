@@ -192,6 +192,21 @@ export class PaymentProofIssuer {
     developerId: ResourceId<'dev'>,
     transactionId: ResourceId<'txn'>,
   ): Promise<Readonly<PaymentProofWire>> {
+    return this.#issue('principalId', getResourceUuid(developerId), transactionId);
+  }
+
+  async issueForAgent(
+    agentId: ResourceId<'agt'>,
+    transactionId: ResourceId<'txn'>,
+  ): Promise<Readonly<PaymentProofWire>> {
+    return this.#issue('agentId', getResourceUuid(agentId), transactionId);
+  }
+
+  async #issue(
+    ownerColumn: 'principalId' | 'agentId',
+    ownerId: string,
+    transactionId: ResourceId<'txn'>,
+  ): Promise<Readonly<PaymentProofWire>> {
     const now = this.#now();
 
     return this.#database.transaction().execute(async (transaction) => {
@@ -207,7 +222,7 @@ export class PaymentProofIssuer {
           'status',
         ])
         .where('id', '=', getResourceUuid(transactionId))
-        .where('principalId', '=', getResourceUuid(developerId))
+        .where(ownerColumn, '=', ownerId)
         .forUpdate()
         .executeTakeFirst();
 
@@ -241,13 +256,22 @@ export class PaymentProofIssuer {
 
       const attempt = await transaction
         .selectFrom('paymentAttempts')
-        .select(['id', 'status'])
+        .leftJoin('budgetReservations', 'budgetReservations.id', 'paymentAttempts.reservationId')
+        .select([
+          'paymentAttempts.id',
+          'paymentAttempts.status',
+          'paymentAttempts.reservationId',
+          'budgetReservations.status as reservationStatus',
+        ])
         .where('transactionId', '=', paymentTransaction.id)
-        .where('status', '=', 'succeeded')
+        .where('paymentAttempts.status', '=', 'succeeded')
         .orderBy('attemptNumber', 'desc')
         .executeTakeFirst();
 
-      if (attempt === undefined) {
+      if (
+        attempt === undefined ||
+        (attempt.reservationId !== null && attempt.reservationStatus !== 'confirmed')
+      ) {
         throw new PaymentProofError('invalid_state');
       }
 

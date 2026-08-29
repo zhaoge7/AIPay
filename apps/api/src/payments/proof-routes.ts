@@ -7,6 +7,7 @@ import {
 import type { Database } from '@aipay/database';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
+import { createRequireAgentSignature } from '../agent-signatures/routes.js';
 import { createRequireDeveloper } from '../auth/session.js';
 import { createTraceId, sendProblem } from '../http/problem.js';
 import { PaymentProofError, PaymentProofIssuer } from './proofs.js';
@@ -52,6 +53,14 @@ function developerId(request: FastifyRequest) {
   return request.authenticatedDeveloperId;
 }
 
+function agentId(request: FastifyRequest) {
+  if (request.authenticatedAgentId === null) {
+    throw new Error('Authenticated Agent is missing after signature pre-handler');
+  }
+
+  return request.authenticatedAgentId;
+}
+
 function sendPaymentProofError(reply: FastifyReply, traceId: string, error: PaymentProofError) {
   if (error.code === 'invalid_signature' || error.code === 'binding_mismatch') {
     return sendProblem(reply, createApiProblem('SIGNATURE_INVALID', traceId));
@@ -74,6 +83,7 @@ export function registerPaymentProofRoutes(
   issuer: PaymentProofIssuer,
 ): void {
   const requireDeveloper = createRequireDeveloper(database);
+  const requireAgentSignature = createRequireAgentSignature(database);
 
   app.post<{ Params: TransactionParams }>(
     '/v1/transactions/:transactionId/payment-proof',
@@ -84,6 +94,35 @@ export function registerPaymentProofRoutes(
       try {
         const paymentProof = await issuer.issue(
           developerId(request),
+          parseResourceId(request.params.transactionId, 'txn'),
+        );
+        return await reply.status(201).send(createApiSuccess(paymentProof, traceId));
+      } catch (error) {
+        if (error instanceof PaymentProofError) {
+          return sendPaymentProofError(reply, traceId, error);
+        }
+
+        throw error;
+      }
+    },
+  );
+
+  app.post<{ Params: TransactionParams; Body: Record<string, never> }>(
+    '/v1/agent/transactions/:transactionId/payment-proof',
+    {
+      config: { rawBody: true },
+      schema: {
+        params: transactionParamsSchema,
+        body: { type: 'object', additionalProperties: false, maxProperties: 0 },
+      },
+      preHandler: requireAgentSignature,
+    },
+    async (request, reply) => {
+      const traceId = createTraceId();
+
+      try {
+        const paymentProof = await issuer.issueForAgent(
+          agentId(request),
           parseResourceId(request.params.transactionId, 'txn'),
         );
         return await reply.status(201).send(createApiSuccess(paymentProof, traceId));

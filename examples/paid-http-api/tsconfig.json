@@ -3,14 +3,12 @@
   "compilerOptions": {
     "composite": true,
     "declaration": true,
-    "declarationMap": true,
     "noEmit": false,
     "noEmitOnError": true,
     "outDir": "dist",
     "rootDir": "src",
-    "sourceMap": true,
     "types": ["node"]
   },
   "include": ["src/**/*.ts"],
-  "references": [{ "path": "../contracts" }]
+  "references": [{ "path": "../../packages/sdk-ts" }]
 }

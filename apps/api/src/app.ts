@@ -21,6 +21,7 @@ import { registerCatalogRoutes } from './services/catalog-routes.js';
 import { registerServiceRoutes } from './services/routes.js';
 import { registerQuoteRoutes } from './quotes/routes.js';
 import { registerQuoteSigningRoutes } from './quotes/signing-routes.js';
+import { registerAgentPaymentRoutes } from './payments/agent-routes.js';
 import { registerAlipayWebhookRoutes } from './payments/webhook-routes.js';
 import { registerPaymentProofRoutes } from './payments/proof-routes.js';
 import type { PaymentProofIssuer } from './payments/proofs.js';
@@ -48,6 +49,8 @@ export interface BuildAppOptions {
   readonly secureCookies?: boolean;
   readonly logger?: boolean;
   readonly mandateIssuer?: MandateIssuer;
+  readonly paymentProvider?: PaymentProvider;
+  readonly paymentCallbackUrl?: string;
   readonly alipayProvider?: PaymentProvider;
   readonly paymentProofIssuer?: PaymentProofIssuer;
   readonly a2mService?: A2MService;
@@ -128,6 +131,16 @@ export async function buildApp(options: BuildAppOptions) {
   registerQuoteSigningRoutes(app, options.database);
   registerTransactionCreationRoutes(app, options.database);
   registerTimelineRoutes(app, options.database);
+  const paymentProvider = options.paymentProvider ?? options.alipayProvider;
+
+  if (paymentProvider !== undefined) {
+    registerAgentPaymentRoutes(
+      app,
+      options.database,
+      paymentProvider,
+      options.paymentCallbackUrl ?? 'http://127.0.0.1/v1/payments/alipay/webhook',
+    );
+  }
   if (options.alipayProvider !== undefined) {
     registerAlipayWebhookRoutes(app, options.database, options.alipayProvider);
   }

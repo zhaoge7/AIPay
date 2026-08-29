@@ -196,6 +196,8 @@ pending Delivery 默认 5 分钟截止，并快照 Proof 消费时的 refundPoli
 | `pnpm run db:reset`     | 安全重建开发/测试数据库并重放迁移      |
 | `pnpm run db:down`      | 停止数据库容器并保留开发数据卷         |
 
+Agent/Merchant SDK、付费 HTTP API 和 MCP Tool 的独立接入见 [SDK 快速开始](./docs/quickstart.md)。
+
 ## 目录结构
 
 ```text

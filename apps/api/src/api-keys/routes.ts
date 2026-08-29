@@ -2,7 +2,7 @@ import { createApiProblem, createApiSuccess, parseResourceId } from '@aipay/cont
 import type { Database } from '@aipay/database';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
-import { createRequireDeveloper } from '../auth/session.js';
+import { createRequireSession } from '../auth/session.js';
 import { createTraceId, sendProblem } from '../http/problem.js';
 import { ApiKeyError, ApiKeyService } from './service.js';
 
@@ -73,7 +73,7 @@ function sendApiKeyError(reply: FastifyReply, traceId: string, error: ApiKeyErro
 
 export function registerApiKeyRoutes(app: FastifyInstance, database: Database): void {
   const service = new ApiKeyService(database);
-  const requireDeveloper = createRequireDeveloper(database);
+  const requireDeveloper = createRequireSession(database);
 
   app.post<{ Body: CreateBody }>(
     '/v1/api-keys',

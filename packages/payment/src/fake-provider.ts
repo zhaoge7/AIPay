@@ -23,6 +23,8 @@ export type FakeOutcome = 'pending' | 'succeeded' | 'failed' | 'timeout';
 
 export interface FakeProviderOptions {
   readonly webhookSecret: string;
+  readonly defaultPaymentOutcome?: FakeOutcome;
+  readonly defaultRefundOutcome?: FakeOutcome;
   readonly now?: () => Date;
 }
 
@@ -123,6 +125,8 @@ export class FakePaymentProvider implements PaymentProvider {
   });
   readonly #secret: Buffer;
   readonly #now: () => Date;
+  readonly #defaultPaymentOutcome: FakeOutcome;
+  readonly #defaultRefundOutcome: FakeOutcome;
   readonly #paymentOutcomes: FakeOutcome[] = [];
   readonly #refundOutcomes: FakeOutcome[] = [];
   readonly #paymentsByIdempotency = new Map<string, PaymentRecord>();
@@ -140,6 +144,8 @@ export class FakePaymentProvider implements PaymentProvider {
 
     this.#secret = Buffer.from(options.webhookSecret, 'utf8');
     this.#now = options.now ?? (() => new Date());
+    this.#defaultPaymentOutcome = options.defaultPaymentOutcome ?? 'pending';
+    this.#defaultRefundOutcome = options.defaultRefundOutcome ?? 'pending';
   }
 
   enqueuePaymentOutcome(outcome: FakeOutcome): void {
@@ -182,7 +188,7 @@ export class FakePaymentProvider implements PaymentProvider {
       return freezePayment(existing);
     }
 
-    const outcome = this.#paymentOutcomes.shift() ?? 'pending';
+    const outcome = this.#paymentOutcomes.shift() ?? this.#defaultPaymentOutcome;
     const record: PaymentRecord = {
       idempotencyKey: request.idempotencyKey,
       providerPaymentId: `fake_pay_${String(++this.#paymentSequence)}`,
@@ -237,7 +243,7 @@ export class FakePaymentProvider implements PaymentProvider {
       });
     }
 
-    const outcome = this.#refundOutcomes.shift() ?? 'pending';
+    const outcome = this.#refundOutcomes.shift() ?? this.#defaultRefundOutcome;
     const record: RefundRecord = {
       idempotencyKey: request.idempotencyKey,
       providerRefundId: `fake_refund_${String(++this.#refundSequence)}`,

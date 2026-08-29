@@ -1,0 +1,17 @@
+{
+  "name": "@aipay/example-paid-http-api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Standalone paid HTTP API example using the public AIPay SDK",
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc --build",
+    "start": "node dist/index.js",
+    "client": "node dist/client.js"
+  },
+  "dependencies": {
+    "@aipay/sdk-ts": "workspace:*",
+    "fastify": "5.12.1"
+  }
+}

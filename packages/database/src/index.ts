@@ -189,6 +189,7 @@ export interface TransactionTable {
 export interface PaymentAttemptTable {
   id: Generated<string>;
   transactionId: string;
+  reservationId: Generated<string | null>;
   attemptNumber: number;
   provider: string;
   providerReference: string | null;

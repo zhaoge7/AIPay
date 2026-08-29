@@ -9,13 +9,16 @@ import { buildApp } from './app.js';
 import { loadA2MRuntimeConfig } from './a2m/config.js';
 import { A2MService } from './a2m/service.js';
 import { MandateIssuer } from './mandates/issuer.js';
+import { PaymentProofIssuer } from './payments/proofs.js';
 
 export const config = loadApiConfig(process.env);
 
 export async function startApi() {
   const databaseConfig = loadDatabaseConfig(process.env);
   const database = createDatabase(databaseConfig.url);
-  const mandateIssuer = new MandateIssuer(database, loadMandateIssuerConfig(process.env));
+  const issuerConfig = loadMandateIssuerConfig(process.env);
+  const mandateIssuer = new MandateIssuer(database, issuerConfig);
+  const paymentProofIssuer = new PaymentProofIssuer(database, issuerConfig);
   const a2mConfig = await loadA2MRuntimeConfig(process.env);
   const a2mService = new A2MService(database, new AlipayA2MClient(a2mConfig), a2mConfig);
   const app = await buildApp({
@@ -23,6 +26,7 @@ export async function startApi() {
     secureCookies: config.environment === 'production',
     logger: true,
     mandateIssuer,
+    paymentProofIssuer,
     a2mService,
   });
 
@@ -52,6 +56,7 @@ export { QuoteDraftError, QuoteDraftService } from './quotes/drafts.js';
 export { QuoteSigningError, QuoteSigningService } from './quotes/signing.js';
 export { TransactionCreationError, TransactionCreationService } from './transactions/create.js';
 export { PaymentExecutionError, PaymentExecutionService } from './payments/execution.js';
+export { AgentPaymentError, AgentPaymentExecutionService } from './payments/agent-execution.js';
 export { PaymentWebhookError, PaymentWebhookService } from './payments/webhook.js';
 export { RefundExecutionError, RefundExecutionService } from './payments/refunds.js';
 export { PaymentProofError, PaymentProofIssuer } from './payments/proofs.js';

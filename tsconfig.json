@@ -7,6 +7,8 @@
     { "path": "./apps/web" },
     { "path": "./apps/api" },
     { "path": "./apps/worker" },
+    { "path": "./examples/paid-http-api" },
+    { "path": "./examples/paid-mcp-tool" },
     { "path": "./packages/contracts" },
     { "path": "./packages/sdk-ts" },
     { "path": "./packages/payment" },

@@ -36,6 +36,7 @@ export class PaymentExecutionError extends Error {
 export interface PaymentAttemptView {
   readonly paymentAttemptId: ResourceId<'pat'>;
   readonly transactionId: ResourceId<'txn'>;
+  readonly reservationId: ResourceId<'rsv'> | null;
   readonly attemptNumber: number;
   readonly provider: string;
   readonly providerReference: string | null;
@@ -69,6 +70,7 @@ function toAttemptView(
   row: {
     readonly id: string;
     readonly transactionId: string;
+    readonly reservationId: string | null;
     readonly attemptNumber: number;
     readonly provider: string;
     readonly providerReference: string | null;
@@ -85,6 +87,8 @@ function toAttemptView(
   return Object.freeze({
     paymentAttemptId: parseResourceId(`pat_${row.id}`, 'pat'),
     transactionId: parseResourceId(`txn_${row.transactionId}`, 'txn'),
+    reservationId:
+      row.reservationId === null ? null : parseResourceId(`rsv_${row.reservationId}`, 'rsv'),
     attemptNumber: row.attemptNumber,
     provider: row.provider,
     providerReference: row.providerReference,
@@ -101,6 +105,7 @@ function toAttemptView(
 const attemptColumns = [
   'id',
   'transactionId',
+  'reservationId',
   'attemptNumber',
   'provider',
   'providerReference',
@@ -124,9 +129,21 @@ export class PaymentExecutionService {
     this.#now = now;
   }
 
+  async latest(transactionId: ResourceId<'txn'>): Promise<Readonly<PaymentAttemptView> | null> {
+    const attempt = await this.#database
+      .selectFrom('paymentAttempts')
+      .select(attemptColumns)
+      .where('transactionId', '=', getResourceUuid(transactionId))
+      .orderBy('attemptNumber', 'desc')
+      .executeTakeFirst();
+
+    return attempt === undefined ? null : toAttemptView(attempt);
+  }
+
   async create(
     transactionId: ResourceId<'txn'>,
     provider: PaymentProvider,
+    reservationId: ResourceId<'rsv'> | null = null,
   ): Promise<Readonly<PaymentAttemptView>> {
     const context = await this.#database.transaction().execute(async (transaction) => {
       const paymentTransaction = await transaction
@@ -155,6 +172,7 @@ export class PaymentExecutionService {
         .insertInto('paymentAttempts')
         .values({
           transactionId: paymentTransaction.id,
+          reservationId: reservationId === null ? null : getResourceUuid(reservationId),
           attemptNumber,
           provider: provider.name,
           providerReference: null,

@@ -9,7 +9,9 @@
   "scripts": {
     "build": "tsc --build",
     "test": "pnpm --filter @aipay/worker build && pnpm run build && node --test --test-concurrency=1 test/**/*.test.mjs",
-    "generate:issuer": "node scripts/generate-mandate-issuer.mjs"
+    "generate:issuer": "node scripts/generate-mandate-issuer.mjs",
+    "prepare:env": "node scripts/prepare-local-env.mjs",
+    "sdk:sandbox": "node --env-file-if-exists=../../.env scripts/start-sdk-sandbox.mjs"
   },
   "dependencies": {
     "@aipay/config": "workspace:*",
@@ -25,6 +27,8 @@
     "uuid": "13.0.0"
   },
   "devDependencies": {
-    "@aipay/worker": "workspace:*"
+    "@aipay/sdk-ts": "workspace:*",
+    "@aipay/worker": "workspace:*",
+    "@modelcontextprotocol/client": "2.0.0"
   }
 }

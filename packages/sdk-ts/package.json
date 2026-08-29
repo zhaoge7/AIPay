@@ -1,6 +1,27 @@
 {
   "name": "@aipay/sdk-ts",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
-  "description": "AIPay TypeScript SDK"
+  "description": "AIPay Agent and merchant TypeScript SDK",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc --build",
+    "test": "pnpm run build && node --test test/**/*.test.mjs"
+  },
+  "dependencies": {
+    "@aipay/contracts": "workspace:*",
+    "@peac/http-signatures": "0.16.4"
+  }
 }

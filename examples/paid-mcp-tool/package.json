@@ -1,0 +1,19 @@
+{
+  "name": "@aipay/example-paid-mcp-tool",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Standalone paid MCP Tool and Agent example using public SDKs",
+  "type": "module",
+  "main": "./dist/server.js",
+  "scripts": {
+    "build": "tsc --build",
+    "start": "node dist/server.js",
+    "client": "node dist/client.js"
+  },
+  "dependencies": {
+    "@aipay/sdk-ts": "workspace:*",
+    "@modelcontextprotocol/client": "2.0.0",
+    "@modelcontextprotocol/server": "2.0.0",
+    "zod": "4.4.3"
+  }
+}
