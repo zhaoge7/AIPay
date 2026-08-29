@@ -28,6 +28,7 @@ import { registerPaymentProofRoutes } from './payments/proof-routes.js';
 import type { PaymentProofIssuer } from './payments/proofs.js';
 import { registerManualApprovalRoutes } from './transactions/manual-approval-routes.js';
 import { registerTransactionCreationRoutes } from './transactions/create-routes.js';
+import { registerTransactionQueryRoutes } from './transactions/query-routes.js';
 import { registerTimelineRoutes } from './timeline/routes.js';
 
 const authBodySchema = {
@@ -132,6 +133,7 @@ export async function buildApp(options: BuildAppOptions) {
   registerQuoteRoutes(app, options.database);
   registerQuoteSigningRoutes(app, options.database);
   registerTransactionCreationRoutes(app, options.database);
+  registerTransactionQueryRoutes(app, options.database);
   registerTimelineRoutes(app, options.database);
   const paymentProvider = options.paymentProvider ?? options.alipayProvider;
 

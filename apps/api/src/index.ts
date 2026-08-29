@@ -55,6 +55,12 @@ export { ManualApprovalError, ManualApprovalService } from './transactions/manua
 export { QuoteDraftError, QuoteDraftService } from './quotes/drafts.js';
 export { QuoteSigningError, QuoteSigningService } from './quotes/signing.js';
 export { TransactionCreationError, TransactionCreationService } from './transactions/create.js';
+export {
+  TransactionQueryError,
+  TransactionQueryService,
+  type TransactionListItem,
+  type TransactionQuery,
+} from './transactions/query.js';
 export { PaymentExecutionError, PaymentExecutionService } from './payments/execution.js';
 export { AgentPaymentError, AgentPaymentExecutionService } from './payments/agent-execution.js';
 export { PaymentWebhookError, PaymentWebhookService } from './payments/webhook.js';

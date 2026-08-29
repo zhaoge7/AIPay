@@ -11,6 +11,7 @@ import {
   Menu,
   PackageOpen,
   ScrollText,
+  ReceiptText,
   ShieldCheck,
   UserRound,
   X,
@@ -32,6 +33,7 @@ import { useAuth } from './auth.js';
 import { ServicesPage } from './ServicesPage.js';
 import { MandatesPage } from './MandatesPage.js';
 import { ConfirmationsPage } from './ConfirmationsPage.js';
+import { TransactionsPage } from './TransactionsPage.js';
 
 function FullPageStatus() {
   return (
@@ -319,6 +321,13 @@ function ConsoleShell() {
             <BadgeCheck size={18} />
             人工确认
           </NavLink>
+          <NavLink
+            className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}
+            to="/transactions"
+          >
+            <ReceiptText size={18} />
+            交易
+          </NavLink>
         </nav>
         <div className="nav-footer">
           <p>{developer.email}</p>
@@ -367,7 +376,9 @@ function ConsoleShell() {
                   ? '授权管理'
                   : location.pathname === '/confirmations'
                     ? '人工确认'
-                    : '控制台'}
+                    : location.pathname === '/transactions'
+                      ? '交易与时间线'
+                      : '控制台'}
           </span>
           <span className="environment-label">本地环境</span>
         </header>
@@ -389,6 +400,7 @@ export function App() {
         <Route path="/services" element={<ServicesPage />} />
         <Route path="/mandates" element={<MandatesPage />} />
         <Route path="/confirmations" element={<ConfirmationsPage />} />
+        <Route path="/transactions" element={<TransactionsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

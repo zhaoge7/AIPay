@@ -10,6 +10,7 @@ import {
   ManualApprovalError,
   ManualApprovalService,
 } from '../dist/transactions/manual-approval.js';
+import { TransactionQueryError, TransactionQueryService } from '../dist/transactions/query.js';
 import { runMigrations } from '../../../packages/database/scripts/migration-runner.mjs';
 import {
   removePostgresContainer,
@@ -176,6 +177,30 @@ test('creates pending transactions above threshold without executing payment', a
   assert.deepEqual(
     await approval.listPending(parseResourceId(`dev_${otherDeveloper.id}`, 'dev')),
     [],
+  );
+  const transactionQuery = new TransactionQueryService(database);
+  const ownerId = parseResourceId(`dev_${developer.id}`, 'dev');
+  const listedTransactions = await transactionQuery.list(ownerId, {
+    status: 'requires_confirmation',
+    agentId,
+    merchantId: parseResourceId(`mch_${merchant.id}`, 'mch'),
+    from: new Date(Date.now() - 60_000),
+    to: new Date(Date.now() + 60_000),
+  });
+  assert.equal(listedTransactions.length, 1);
+  assert.equal(listedTransactions[0].agentName, 'Approval Agent');
+  assert.equal(listedTransactions[0].merchantName, 'Approval Merchant');
+  assert.equal(listedTransactions[0].serviceName, 'Approval Service');
+  assert.deepEqual(
+    await transactionQuery.list(parseResourceId(`dev_${otherDeveloper.id}`, 'dev')),
+    [],
+  );
+  await assert.rejects(
+    transactionQuery.list(ownerId, {
+      from: new Date('2026-08-30T02:00:00.000Z'),
+      to: new Date('2026-08-30T01:00:00.000Z'),
+    }),
+    (error) => error instanceof TransactionQueryError,
   );
 
   await database

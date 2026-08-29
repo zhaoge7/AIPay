@@ -113,6 +113,50 @@ export interface PendingApprovalView {
   readonly updatedAt: string;
 }
 
+export interface TransactionListItem {
+  readonly transactionId: string;
+  readonly mandateId: string;
+  readonly quoteId: string;
+  readonly agentId: string;
+  readonly agentName: string;
+  readonly merchantId: string;
+  readonly merchantName: string;
+  readonly serviceId: string;
+  readonly serviceName: string;
+  readonly amount: MoneyView;
+  readonly status: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface TimelineEvent {
+  readonly eventId: string;
+  readonly phase: string;
+  readonly eventType: string;
+  readonly objectType: string;
+  readonly objectId: string;
+  readonly occurredAt: string;
+  readonly completedAt: string | null;
+  readonly status: string;
+  readonly provider: string | null;
+  readonly operation: string | null;
+  readonly errorCode: string | null;
+}
+
+export interface TransactionTimeline {
+  readonly transaction: Readonly<{
+    transactionId: string;
+    mandateId: string;
+    quoteId: string;
+    agentId: string;
+    merchantId: string;
+    serviceId: string;
+    amount: MoneyView;
+    status: string;
+  }>;
+  readonly events: readonly TimelineEvent[];
+}
+
 interface SuccessEnvelope<Data> {
   readonly data: Data;
   readonly meta: Readonly<{ traceId: string }>;
@@ -256,4 +300,26 @@ export const consoleApi = Object.freeze({
         body: JSON.stringify({ action }),
       },
     ),
+  transactions: (
+    filters: Readonly<{
+      status?: string;
+      agentId?: string;
+      merchantId?: string;
+      from?: string;
+      to?: string;
+    }> = {},
+  ) => {
+    const query = new URLSearchParams();
+
+    for (const name of ['status', 'agentId', 'merchantId', 'from', 'to'] as const) {
+      const value = filters[name];
+
+      if (value !== undefined) query.set(name, value);
+    }
+
+    const suffix = query.size === 0 ? '' : `?${query.toString()}`;
+    return request<readonly TransactionListItem[]>(`/v1/transactions${suffix}`);
+  },
+  timeline: (transactionId: string) =>
+    request<TransactionTimeline>(`/v1/transactions/${transactionId}/timeline`),
 });
