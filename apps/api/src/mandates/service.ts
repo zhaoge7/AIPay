@@ -23,7 +23,8 @@ export type MandateDraftErrorCode =
   | 'invalid_validity'
   | 'invalid_instruction_hash'
   | 'agent_unavailable'
-  | 'merchant_unavailable';
+  | 'merchant_unavailable'
+  | 'not_found';
 
 export class MandateDraftError extends Error {
   readonly code: MandateDraftErrorCode;
@@ -71,6 +72,16 @@ export interface MandateDraftView {
   readonly createdAt: string;
 }
 
+export interface MandateView extends Omit<MandateDraftView, 'status'> {
+  readonly status: 'draft' | 'active' | 'paused' | 'revoked' | 'expired';
+  readonly spentAmount: Readonly<Money>;
+  readonly reservedAmount: Readonly<Money>;
+  readonly completedTransactionCount: number;
+  readonly reservedTransactionCount: number;
+  readonly statusChangedAt: string;
+  readonly revokedAt: string | null;
+}
+
 interface MandateDraftRow {
   readonly id: string;
   readonly principalId: string;
@@ -86,6 +97,12 @@ interface MandateDraftRow {
   readonly instructionHash: Uint8Array;
   readonly status: 'draft' | 'active' | 'paused' | 'revoked' | 'expired';
   readonly createdAt: Date;
+  readonly spentAmountMinor: string;
+  readonly reservedAmountMinor: string;
+  readonly completedTransactionCount: number;
+  readonly reservedTransactionCount: number;
+  readonly statusChangedAt: Date;
+  readonly revokedAt: Date | null;
 }
 
 function hasInvalidText(value: string): boolean {
@@ -225,7 +242,68 @@ const mandateDraftColumns = [
   'instructionHash',
   'status',
   'createdAt',
+  'spentAmountMinor',
+  'reservedAmountMinor',
+  'completedTransactionCount',
+  'reservedTransactionCount',
+  'statusChangedAt',
+  'revokedAt',
 ] as const;
+
+function toMandateView(
+  row: MandateDraftRow,
+  merchantIds: readonly ResourceId<'mch'>[],
+  categories: readonly string[],
+): Readonly<MandateView> {
+  return Object.freeze({
+    mandateId: parseResourceId(`mdt_${row.id}`, 'mdt'),
+    principalId: parseResourceId(`dev_${row.principalId}`, 'dev'),
+    agentId: parseResourceId(`agt_${row.agentId}`, 'agt'),
+    purpose: row.purpose,
+    allowedMerchantIds: merchantIds,
+    allowedCategories: categories,
+    maxPerTransaction: createMoney(row.currency, row.maxPerTransactionAmountMinor),
+    totalBudget: createMoney(row.currency, row.totalBudgetAmountMinor),
+    approvalRequiredAbove: createMoney(row.currency, row.approvalRequiredAboveAmountMinor),
+    maxTransactions: row.maxTransactions,
+    issuedAt: formatUtcDateTime(row.issuedAt),
+    validUntil: formatUtcDateTime(row.validUntil),
+    instructionHash: instructionHashString(row.instructionHash),
+    status: row.status,
+    createdAt: formatUtcDateTime(row.createdAt),
+    spentAmount: createMoney(row.currency, row.spentAmountMinor),
+    reservedAmount: createMoney(row.currency, row.reservedAmountMinor),
+    completedTransactionCount: row.completedTransactionCount,
+    reservedTransactionCount: row.reservedTransactionCount,
+    statusChangedAt: formatUtcDateTime(row.statusChangedAt),
+    revokedAt: row.revokedAt === null ? null : formatUtcDateTime(row.revokedAt),
+  });
+}
+
+async function loadMandateView(
+  transaction: DatabaseTransaction,
+  row: MandateDraftRow,
+): Promise<Readonly<MandateView>> {
+  const [merchants, categories] = await Promise.all([
+    transaction
+      .selectFrom('mandateAllowedMerchants')
+      .select('merchantId')
+      .where('mandateId', '=', row.id)
+      .orderBy('merchantId')
+      .execute(),
+    transaction
+      .selectFrom('mandateAllowedCategories')
+      .select('category')
+      .where('mandateId', '=', row.id)
+      .orderBy('category')
+      .execute(),
+  ]);
+  return toMandateView(
+    row,
+    Object.freeze(merchants.map(({ merchantId }) => parseResourceId(`mch_${merchantId}`, 'mch'))),
+    Object.freeze(categories.map(({ category }) => category)),
+  );
+}
 
 export class MandateDraftService {
   readonly #database: Database;
@@ -329,6 +407,60 @@ export class MandateDraftService {
         .values(categories.map((category) => ({ mandateId: row.id, category })))
         .execute();
       return toView(row, merchantIds, categories);
+    });
+  }
+
+  async list(principalId: ResourceId<'dev'>): Promise<readonly Readonly<MandateView>[]> {
+    const now = this.#now();
+
+    return this.#database.transaction().execute(async (transaction) => {
+      await transaction
+        .updateTable('mandates')
+        .set({ status: 'expired', statusChangedAt: now })
+        .where('principalId', '=', getResourceUuid(principalId))
+        .where('status', 'in', ['active', 'paused'])
+        .where('validUntil', '<=', now)
+        .execute();
+      const rows = await transaction
+        .selectFrom('mandates')
+        .select(mandateDraftColumns)
+        .where('principalId', '=', getResourceUuid(principalId))
+        .orderBy('createdAt', 'desc')
+        .orderBy('id', 'desc')
+        .execute();
+      return Object.freeze(await Promise.all(rows.map((row) => loadMandateView(transaction, row))));
+    });
+  }
+
+  async get(
+    principalId: ResourceId<'dev'>,
+    mandateId: ResourceId<'mdt'>,
+  ): Promise<Readonly<MandateView>> {
+    const now = this.#now();
+
+    return this.#database.transaction().execute(async (transaction) => {
+      let row = await transaction
+        .selectFrom('mandates')
+        .select(mandateDraftColumns)
+        .where('id', '=', getResourceUuid(mandateId))
+        .where('principalId', '=', getResourceUuid(principalId))
+        .forUpdate()
+        .executeTakeFirst();
+
+      if (row === undefined) {
+        throw new MandateDraftError('not_found');
+      }
+
+      if (now >= row.validUntil && (row.status === 'active' || row.status === 'paused')) {
+        row = await transaction
+          .updateTable('mandates')
+          .set({ status: 'expired', statusChangedAt: now })
+          .where('id', '=', row.id)
+          .returning(mandateDraftColumns)
+          .executeTakeFirstOrThrow();
+      }
+
+      return loadMandateView(transaction, row);
     });
   }
 }

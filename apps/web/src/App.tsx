@@ -9,6 +9,7 @@ import {
   LogOut,
   Menu,
   PackageOpen,
+  ScrollText,
   ShieldCheck,
   UserRound,
   X,
@@ -28,6 +29,7 @@ import { AgentsPage } from './AgentsPage.js';
 import { ConsoleApiError } from './api.js';
 import { useAuth } from './auth.js';
 import { ServicesPage } from './ServicesPage.js';
+import { MandatesPage } from './MandatesPage.js';
 
 function FullPageStatus() {
   return (
@@ -301,6 +303,13 @@ function ConsoleShell() {
             <PackageOpen size={18} />
             服务与定价
           </NavLink>
+          <NavLink
+            className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}
+            to="/mandates"
+          >
+            <ScrollText size={18} />
+            授权
+          </NavLink>
         </nav>
         <div className="nav-footer">
           <p>{developer.email}</p>
@@ -345,7 +354,9 @@ function ConsoleShell() {
               ? 'Agent 管理'
               : location.pathname === '/services'
                 ? '服务与定价'
-                : '控制台'}
+                : location.pathname === '/mandates'
+                  ? '授权管理'
+                  : '控制台'}
           </span>
           <span className="environment-label">本地环境</span>
         </header>
@@ -365,6 +376,7 @@ export function App() {
         <Route path="/" element={<Overview />} />
         <Route path="/agents" element={<AgentsPage />} />
         <Route path="/services" element={<ServicesPage />} />
+        <Route path="/mandates" element={<MandatesPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

@@ -121,6 +121,27 @@ test('creates a structured unsigned Mandate draft without any LLM dependency', a
   assert.equal(draft.status, 'draft');
   assert.equal('proof' in draft, false);
 
+  const listed = await app.inject({
+    method: 'GET',
+    url: '/v1/mandates',
+    headers: { cookie: principal.cookie },
+  });
+  assert.equal(listed.statusCode, 200);
+  const listedMandate = parseBody(listed).data[0];
+  assert.equal(listedMandate.mandateId, draft.mandateId);
+  assert.deepEqual(listedMandate.spentAmount, { currency: 'CNY', amountMinor: '0' });
+  assert.deepEqual(listedMandate.reservedAmount, { currency: 'CNY', amountMinor: '0' });
+  assert.equal(listedMandate.completedTransactionCount, 0);
+  assert.equal(listedMandate.reservedTransactionCount, 0);
+
+  const detail = await app.inject({
+    method: 'GET',
+    url: `/v1/mandates/${draft.mandateId}`,
+    headers: { cookie: principal.cookie },
+  });
+  assert.equal(detail.statusCode, 200);
+  assert.deepEqual(parseBody(detail).data, listedMandate);
+
   const stored = await database
     .selectFrom('mandates')
     .select([
@@ -147,6 +168,12 @@ test('creates a structured unsigned Mandate draft without any LLM dependency', a
   );
 
   const other = await register(app, 'other-mandate-principal@example.com');
+  const crossDetail = await app.inject({
+    method: 'GET',
+    url: `/v1/mandates/${draft.mandateId}`,
+    headers: { cookie: other.cookie },
+  });
+  assert.equal(crossDetail.statusCode, 403);
   const crossAgent = await app.inject({
     method: 'POST',
     url: '/v1/mandates',

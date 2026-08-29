@@ -90,7 +90,11 @@ function getDeveloperId(request: FastifyRequest) {
 }
 
 function sendDraftError(reply: FastifyReply, traceId: string, error: MandateDraftError) {
-  if (error.code === 'agent_unavailable' || error.code === 'merchant_unavailable') {
+  if (
+    error.code === 'agent_unavailable' ||
+    error.code === 'merchant_unavailable' ||
+    error.code === 'not_found'
+  ) {
     return sendProblem(reply, createApiProblem('AUTHORIZATION_DENIED', traceId));
   }
 
@@ -140,6 +144,33 @@ export function registerMandateRoutes(
       try {
         const result = await service.create(getDeveloperId(request), request.body);
         return await reply.status(201).send(createApiSuccess(result, traceId));
+      } catch (error) {
+        if (error instanceof MandateDraftError) {
+          return sendDraftError(reply, traceId, error);
+        }
+
+        throw error;
+      }
+    },
+  );
+
+  app.get('/v1/mandates', { preHandler: requireDeveloper }, async (request, reply) => {
+    const result = await service.list(getDeveloperId(request));
+    return reply.send(createApiSuccess(result, createTraceId()));
+  });
+
+  app.get<{ Params: MandateParams }>(
+    '/v1/mandates/:mandateId',
+    { schema: { params: mandateParamsSchema }, preHandler: requireDeveloper },
+    async (request, reply) => {
+      const traceId = createTraceId();
+
+      try {
+        const result = await service.get(
+          getDeveloperId(request),
+          parseResourceId(request.params.mandateId, 'mdt'),
+        );
+        return await reply.send(createApiSuccess(result, traceId));
       } catch (error) {
         if (error instanceof MandateDraftError) {
           return sendDraftError(reply, traceId, error);

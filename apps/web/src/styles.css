@@ -988,6 +988,154 @@ input:focus-visible {
   color: var(--ink);
 }
 
+.mandate-table th:nth-child(1) {
+  width: 23%;
+}
+.mandate-table th:nth-child(2) {
+  width: 15%;
+}
+.mandate-table th:nth-child(3) {
+  width: 13%;
+}
+.mandate-table th:nth-child(4) {
+  width: 9%;
+}
+.mandate-table th:nth-child(5) {
+  width: 17%;
+}
+.mandate-table th:nth-child(6) {
+  width: 11%;
+}
+.mandate-table th:nth-child(7) {
+  width: 8%;
+}
+
+.clipped-value {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mandate-status {
+  min-height: 26px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.mandate-status.active {
+  color: #276847;
+  background: #edf7f1;
+}
+.mandate-status.draft {
+  color: #586563;
+  background: #eef1f0;
+}
+.mandate-status.paused {
+  color: #8c5c1e;
+  background: #fff5e8;
+}
+.mandate-status.revoked,
+.mandate-status.expired {
+  color: #86504a;
+  background: #f5eeee;
+}
+
+.wide-modal {
+  width: min(100%, 780px);
+}
+
+.form-grid.three {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.inline-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.inline-options button {
+  min-height: 28px;
+  padding: 0 8px;
+  border: 1px solid #bfd2ce;
+  border-radius: 5px;
+  background: #f3f8f7;
+  color: #32645e;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.mandate-detail {
+  padding: 0 18px 20px;
+}
+
+.detail-status {
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.detail-status > svg {
+  color: var(--teal);
+}
+
+.mandate-detail section {
+  padding: 18px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.mandate-detail section:last-child {
+  border-bottom: 0;
+}
+
+.mandate-detail h3 {
+  margin: 0 0 14px;
+  color: #34413f;
+  font-size: 13px;
+}
+
+.detail-grid {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.detail-grid.four {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.detail-grid dt {
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.detail-grid dd {
+  margin: 0;
+  color: #303b39;
+  font-size: 13px;
+}
+
+.value-line {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.break-value {
+  overflow-wrap: anywhere;
+}
+
 .sr-only {
   position: absolute;
   width: 1px;
@@ -1171,6 +1319,12 @@ input:focus-visible {
   }
 
   .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-grid.three,
+  .detail-grid,
+  .detail-grid.four {
     grid-template-columns: 1fr;
   }
 }

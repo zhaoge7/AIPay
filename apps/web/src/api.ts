@@ -50,6 +50,48 @@ export interface ServiceInput {
   readonly refundPolicy: ServiceView['refundPolicy'];
 }
 
+export interface MoneyView {
+  readonly currency: 'CNY';
+  readonly amountMinor: string;
+}
+
+export interface MandateView {
+  readonly mandateId: string;
+  readonly principalId: string;
+  readonly agentId: string;
+  readonly purpose: string;
+  readonly allowedMerchantIds: readonly string[];
+  readonly allowedCategories: readonly string[];
+  readonly maxPerTransaction: MoneyView;
+  readonly totalBudget: MoneyView;
+  readonly approvalRequiredAbove: MoneyView;
+  readonly maxTransactions: number;
+  readonly issuedAt: string;
+  readonly validUntil: string;
+  readonly instructionHash: string;
+  readonly status: 'draft' | 'active' | 'paused' | 'revoked' | 'expired';
+  readonly createdAt: string;
+  readonly spentAmount: MoneyView;
+  readonly reservedAmount: MoneyView;
+  readonly completedTransactionCount: number;
+  readonly reservedTransactionCount: number;
+  readonly statusChangedAt: string;
+  readonly revokedAt: string | null;
+}
+
+export interface MandateInput {
+  readonly agentId: string;
+  readonly purpose: string;
+  readonly allowedMerchantIds: readonly string[];
+  readonly allowedCategories: readonly string[];
+  readonly maxPerTransaction: MoneyView;
+  readonly totalBudget: MoneyView;
+  readonly approvalRequiredAbove: MoneyView;
+  readonly maxTransactions: number;
+  readonly validUntil: string;
+  readonly instructionHash: string;
+}
+
 interface SuccessEnvelope<Data> {
   readonly data: Data;
   readonly meta: Readonly<{ traceId: string }>;
@@ -171,4 +213,16 @@ export const consoleApi = Object.freeze({
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(input),
     }),
+  mandates: () => request<readonly MandateView[]>('/v1/mandates'),
+  createMandate: (input: MandateInput) =>
+    request<MandateView>('/v1/mandates', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(input),
+    }),
+  issueMandate: (mandateId: string) =>
+    request<Readonly<{ readonly mandateId: string }>>(`/v1/mandates/${mandateId}/issue`, {
+      method: 'POST',
+    }),
+  mandate: (mandateId: string) => request<MandateView>(`/v1/mandates/${mandateId}`),
 });
