@@ -503,7 +503,7 @@ input:focus-visible {
 .metric-card > span {
   display: block;
   margin-top: 7px;
-  color: #7b8583;
+  color: var(--muted);
   font-size: 12px;
 }
 
@@ -687,7 +687,7 @@ input:focus-visible {
 .table-secondary {
   margin-top: 5px;
   overflow: hidden;
-  color: #788380;
+  color: var(--muted);
   font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1214,7 +1214,7 @@ input:focus-visible {
   display: block;
   margin-top: 5px;
   overflow: hidden;
-  color: #7b8583;
+  color: var(--muted);
   font-size: 10px;
   font-weight: 400;
   text-overflow: ellipsis;
@@ -1462,7 +1462,7 @@ input:focus-visible {
 .timeline-list > li > div > .mono-value {
   display: block;
   overflow: hidden;
-  color: #7b8583;
+  color: var(--muted);
   font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1530,7 +1530,7 @@ input:focus-visible {
 .global-control span {
   display: block;
   margin-top: 6px;
-  color: #75807e;
+  color: var(--muted);
   font-size: 11px;
 }
 
