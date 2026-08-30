@@ -84,6 +84,19 @@ This threat model uses STRIDE across assets and trust boundaries, then maps conc
 - Any new external endpoint, principal type, payment product, secret, provider call, or terminal state requires an update to this model and its authorization/failure tests.
 - P10-02 through P10-08 must close the residual actions above before Gate P10 can claim closed-test readiness.
 
+### Deterministic Fault Injection Matrix
+
+| Fault                                                                 | Injection and recovery evidence                                                                                                                         | Required invariant                                                                                  |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Provider create timeout after the external request may have been sent | Fake Provider records unknown and throws; a new `PaymentExecutionService` instance retries with the same provider idempotency key, then queries success | One Payment Attempt and external payment; Transaction moves review to paid without duplicate Outbox |
+| Provider query outage after a terminal payment                        | Alipay client throws during a later query                                                                                                               | Succeeded Attempt and paid Transaction never move backward; failed call remains in the ledger       |
+| Concurrent duplicate success callbacks followed by late close         | Two authentic callbacks race; an authentic `TRADE_CLOSED` arrives after success                                                                         | Exactly one applied provider event and paid Outbox; duplicate/late event ACK does not regress state |
+| Worker dies while holding an Outbox lease                             | Claim is left processing until stale lease recovery                                                                                                     | Another worker reclaims exactly the same event; no event is silently lost                           |
+| Merchant endpoint returns 500, then network error, then 204           | Controlled transport advances per attempt                                                                                                               | Same signed body/event ID is retried with a complete attempt ledger and ends delivered              |
+| Merchant endpoint remains 503/429                                     | Controlled transport exhausts the explicit attempt budget                                                                                               | Delivery and Outbox end in dead letter with stable error/status evidence                            |
+
+The fixed `pnpm run test:faults` command runs this matrix serially. Random sleep, random failures, and production chaos are not CI acceptance evidence.
+
 ## Reporting a Vulnerability
 
 Do not open a public issue containing credentials, personal data, payment identifiers, or an exploit. Report privately to the repository owner with the affected version, impact, minimal reproduction, and whether real funds or production data were involved. Revoke exposed credentials and activate global pause before collecting additional diagnostics.

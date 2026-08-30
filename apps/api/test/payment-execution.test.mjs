@@ -191,11 +191,15 @@ test('records every Provider create/retry/query call and its result', async (con
     { status: 'unknown', errorCode: 'TIMEOUT', providerReference: null },
   );
 
-  const retryCreate = await execution.retryCreate(timeoutAttemptId, provider);
+  const restartedExecution = new PaymentExecutionService(
+    database,
+    'https://aipay.example.com/webhooks/fake',
+  );
+  const retryCreate = await restartedExecution.retryCreate(timeoutAttemptId, provider);
   assert.equal(retryCreate.status, 'unknown');
   assert.match(retryCreate.providerReference, /^fake_pay_/u);
   provider.setPaymentStatus(retryCreate.providerReference, 'succeeded');
-  const recovered = await execution.query(timeoutAttemptId, provider);
+  const recovered = await restartedExecution.query(timeoutAttemptId, provider);
   assert.equal(recovered.status, 'succeeded');
   assert.equal(recovered.providerReference, retryCreate.providerReference);
 
