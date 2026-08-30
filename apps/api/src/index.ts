@@ -19,6 +19,12 @@ export async function startApi() {
   const issuerConfig = loadMandateIssuerConfig(process.env);
   const mandateIssuer = new MandateIssuer(database, issuerConfig);
   const paymentProofIssuer = new PaymentProofIssuer(database, issuerConfig);
+  const metricsToken = process.env.AIPAY_METRICS_TOKEN;
+
+  if (config.environment === 'production' && metricsToken === undefined) {
+    throw new Error('AIPAY_METRICS_TOKEN is required in production');
+  }
+
   const a2mConfig = await loadA2MRuntimeConfig(process.env);
   const a2mService = new A2MService(database, new AlipayA2MClient(a2mConfig), a2mConfig);
   const app = await buildApp({
@@ -28,6 +34,7 @@ export async function startApi() {
     mandateIssuer,
     paymentProofIssuer,
     a2mService,
+    ...(metricsToken === undefined ? {} : { metricsToken }),
   });
 
   app.addHook('onClose', async () => database.destroy());
@@ -45,6 +52,7 @@ export { ApiKeyError, ApiKeyService } from './api-keys/service.js';
 export { AgentError, AgentService } from './agents/service.js';
 export { AgentSignatureError, AgentSignatureService } from './agent-signatures/service.js';
 export { PaymentControlService, type PaymentControlView } from './controls/service.js';
+export { MonitoringService, type MonitoringSnapshot } from './monitoring/service.js';
 export { MerchantError, MerchantService } from './merchants/service.js';
 export { ServiceCatalogService, ServiceError } from './services/service.js';
 export { MandateDraftError, MandateDraftService } from './mandates/service.js';

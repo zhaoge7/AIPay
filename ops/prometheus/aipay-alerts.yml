@@ -1,0 +1,48 @@
+groups:
+  - name: aipay-payment-safety
+    interval: 30s
+    rules:
+      - alert: AIPayHighPaymentFailureRate
+        expr: aipay_payment_attempts_window >= 10 and aipay_payment_failure_ratio > 0.20
+        for: 10m
+        labels:
+          severity: page
+        annotations:
+          summary: AIPay payment failure rate exceeds 20 percent
+          runbook: SECURITY.md#deterministic-fault-injection-matrix
+
+      - alert: AIPayCallbackBacklog
+        expr: aipay_outbox_backlog > 100 or aipay_webhook_delivery_backlog > 50
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: AIPay callback delivery backlog is growing
+          runbook: SECURITY.md#deterministic-fault-injection-matrix
+
+      - alert: AIPayReconciliationDifference
+        expr: aipay_reconciliation_unresolved > 0
+        for: 15m
+        labels:
+          severity: ticket
+        annotations:
+          summary: AIPay reconciliation has unresolved differences
+          runbook: SECURITY.md#security-invariants
+
+      - alert: AIPayAbnormalBudgetConsumption
+        expr: aipay_mandates_near_exhaustion > 0 or aipay_budget_maximum_utilization_ratio >= 0.95
+        for: 5m
+        labels:
+          severity: ticket
+        annotations:
+          summary: One or more AIPay Mandates are nearly exhausted
+          runbook: SECURITY.md#security-invariants
+
+      - alert: AIPayMetricsUnavailable
+        expr: up{job="aipay-api"} == 0
+        for: 2m
+        labels:
+          severity: page
+        annotations:
+          summary: AIPay metrics endpoint is unavailable
+          runbook: SECURITY.md#verification-and-review

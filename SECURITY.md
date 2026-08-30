@@ -117,6 +117,12 @@ Authentication, Transaction creation, confirmation, payment, credential rotation
 - The drill verifies point-in-time row content, AIPay table count, and migration history in an independent database.
 - Backup keys are generated into protected local configuration and never printed. Production backup keys require an external secret manager and rotation procedure.
 
+### Monitoring and Alerting
+
+The authenticated `/internal/metrics` endpoint exports aggregate Prometheus metrics without business identifiers or user labels. It evaluates the database at scrape time for payment attempts/failures, Outbox and Webhook backlog, unresolved reconciliation items, and Mandate budget utilization. Process metrics use the `aipay_process_` prefix.
+
+Alert rules under `ops/prometheus/aipay-alerts.yml` cover payment failure ratio, callback backlog, reconciliation differences, near-exhausted budgets, and loss of the metrics target. Prometheus holds alert state and Alertmanager owns notification routing; application code does not send ad hoc pages.
+
 ## Reporting a Vulnerability
 
 Do not open a public issue containing credentials, personal data, payment identifiers, or an exploit. Report privately to the repository owner with the affected version, impact, minimal reproduction, and whether real funds or production data were involved. Revoke exposed credentials and activate global pause before collecting additional diagnostics.

@@ -60,5 +60,15 @@ jobs:
       - name: Scan secrets and sensitive sinks
         run: pnpm run security:scan
 
+      - name: Install Promtool
+        run: |
+          curl -fsSL -o /tmp/prometheus.tar.gz https://github.com/prometheus/prometheus/releases/download/v3.14.0/prometheus-3.14.0.linux-amd64.tar.gz
+          echo "f665c6da19eb7ba399c915d30c7d9793c9b417bf8a749b504bc470678631478d  /tmp/prometheus.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/prometheus.tar.gz -C /tmp prometheus-3.14.0.linux-amd64/promtool
+          sudo install -m 0755 /tmp/prometheus-3.14.0.linux-amd64/promtool /usr/local/bin/promtool
+
+      - name: Validate monitoring rules
+        run: pnpm run monitoring:check
+
       - name: Test
         run: pnpm run test
