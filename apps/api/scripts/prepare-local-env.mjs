@@ -1,4 +1,4 @@
-import { generateKeyPairSync } from 'node:crypto';
+import { generateKeyPairSync, randomBytes } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import process from 'node:process';
 import { URL } from 'node:url';
@@ -12,6 +12,7 @@ const { privateKey } = generateKeyPairSync('ed25519');
 const issuer = [
   `AIPAY_MANDATE_SIGNING_KEY_ID=key_${uuidv7()}`,
   `AIPAY_MANDATE_SIGNING_PRIVATE_KEY=${privateKey.export({ type: 'pkcs8', format: 'der' }).toString('base64')}`,
+  `AIPAY_BACKUP_KEY=${randomBytes(32).toString('base64')}`,
   '',
 ].join('\n');
 

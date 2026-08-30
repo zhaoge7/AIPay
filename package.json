@@ -21,6 +21,7 @@
     "db:down": "node packages/database/scripts/postgres-container.mjs down",
     "db:migrate": "node --env-file-if-exists=.env packages/database/scripts/migrate.mjs",
     "db:reset": "node --env-file-if-exists=.env packages/database/scripts/reset.mjs",
+    "db:backup": "node --env-file-if-exists=.env packages/database/scripts/backup-restore.mjs backup",
     "quickstart:setup": "node scripts/quickstart-setup.mjs",
     "quickstart:a2m-url": "node --env-file=examples/.env.quickstart scripts/quickstart-a2m-url.mjs",
     "security:secrets:history": "gitleaks git --redact --config=.gitleaks.toml .",

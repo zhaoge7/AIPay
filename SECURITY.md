@@ -65,7 +65,7 @@ This threat model uses STRIDE across assets and trust boundaries, then maps conc
 | Agent or merchant private-key leakage                   | Spoofing               | Key is committed, logged, pasted into console, or returned by server           | Clients generate keys; AIPay accepts only public keys; protected ignored sandbox config; redacted errors; secret scans                                           | Production keys must move to OS secret store/KMS/HSM and documented rotation runbook                              |
 | Sensitive data in logs or telemetry                     | Disclosure             | Error objects or provider responses include keys, identities, proof values     | Stable error catalog, no vendor messages in core, fixed timeline fields, low-sensitivity telemetry                                                               | P10-02 must automate log, database, bundle, and telemetry scans                                                   |
 | Malicious dependency or build artifact                  | Tampering              | Compromised package or mutable image enters CI/deployment                      | Exact dependency versions, frozen lockfile, supply-chain age policy, pinned CI Actions and PostgreSQL image digest                                               | P10 deployment must generate SBOM, scan artifacts, and verify image provenance                                    |
-| Database loss or operator error                         | Denial, repudiation    | Data is deleted, corrupted, or restored inconsistently                         | Migrations, constraints, Outbox, rebuild tests                                                                                                                   | P10-05 requires encrypted backup and independent restore drill with measured RPO/RTO                              |
+| Database loss or operator error                         | Denial, repudiation    | Data is deleted, corrupted, or restored inconsistently                         | Migrations, constraints, Outbox, AES-GCM encrypted custom dump, authenticated independent restore drill                                                          | Production must schedule off-host backups and measure deployment RPO/RTO                                          |
 | Service abuse and resource exhaustion                   | Denial                 | Account, Agent, IP, or expensive endpoint is flooded                           | Bounded schemas and layered IP/credential/Agent/interface rate limits with stable 429 and Retry-After                                                            | Multi-instance deployment needs a shared limiter store; P10-06 must alert on repeated limits                      |
 
 ## Abuse Cases
@@ -107,6 +107,15 @@ The fixed `pnpm run test:faults` command runs this matrix serially. Random sleep
 | Sensitive interface | 60 seconds     |    10 | Method, route, and credential/Agent/IP identity                        |
 
 Authentication, Transaction creation, confirmation, payment, credential rotation, and global controls are sensitive interfaces. Limits use the official Fastify plugin and fail closed on store errors. The MVP in-memory store is valid only for a single API instance; a multi-instance deployment requires a shared store and repeated P10-04 verification.
+
+### Backup Invariants
+
+- Logical backups use PostgreSQL custom format without ownership or ACL coupling.
+- Every backup is encrypted with AES-256-GCM before it reaches the output path; the authentication tag is verified before any database is created.
+- Backup files are created exclusively with mode `0600`; an existing path is never overwritten.
+- Restore targets must differ from the source, end in `_test`, and not already exist.
+- The drill verifies point-in-time row content, AIPay table count, and migration history in an independent database.
+- Backup keys are generated into protected local configuration and never printed. Production backup keys require an external secret manager and rotation procedure.
 
 ## Reporting a Vulnerability
 

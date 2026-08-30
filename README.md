@@ -182,19 +182,20 @@ pending Delivery 默认 5 分钟截止，并快照 Proof 消费时的 refundPoli
 
 ## 常用命令
 
-| 命令                    | 作用                                   |
-| ----------------------- | -------------------------------------- |
-| `pnpm run dev`          | 并行运行各 workspace 已定义的开发脚本  |
-| `pnpm run build`        | 构建各 workspace 已定义的构建目标      |
-| `pnpm run typecheck`    | 对全部 TypeScript 项目执行严格类型检查 |
-| `pnpm run lint`         | 执行 ESLint 检查，禁止警告             |
-| `pnpm run format:check` | 检查 Prettier 格式                     |
-| `pnpm run check`        | 依次执行类型、Lint 和格式检查          |
-| `pnpm run test`         | 执行全部 workspace 测试                |
-| `pnpm run db:up`        | 启动固定版本的本地 PostgreSQL          |
-| `pnpm run db:migrate`   | 应用所有待执行迁移                     |
-| `pnpm run db:reset`     | 安全重建开发/测试数据库并重放迁移      |
-| `pnpm run db:down`      | 停止数据库容器并保留开发数据卷         |
+| 命令                             | 作用                                   |
+| -------------------------------- | -------------------------------------- |
+| `pnpm run dev`                   | 并行运行各 workspace 已定义的开发脚本  |
+| `pnpm run build`                 | 构建各 workspace 已定义的构建目标      |
+| `pnpm run typecheck`             | 对全部 TypeScript 项目执行严格类型检查 |
+| `pnpm run lint`                  | 执行 ESLint 检查，禁止警告             |
+| `pnpm run format:check`          | 检查 Prettier 格式                     |
+| `pnpm run check`                 | 依次执行类型、Lint 和格式检查          |
+| `pnpm run test`                  | 执行全部 workspace 测试                |
+| `pnpm run db:up`                 | 启动固定版本的本地 PostgreSQL          |
+| `pnpm run db:migrate`            | 应用所有待执行迁移                     |
+| `pnpm run db:reset`              | 安全重建开发/测试数据库并重放迁移      |
+| `pnpm run db:down`               | 停止数据库容器并保留开发数据卷         |
+| `pnpm run db:backup -- <新文件>` | 创建 0600 AES-GCM 加密 custom dump     |
 
 Agent/Merchant SDK、付费 HTTP API 和 MCP Tool 的独立接入见 [SDK 快速开始](./docs/quickstart.md)。
 
