@@ -53,7 +53,9 @@ function sendAgentPaymentError(reply: FastifyReply, traceId: string, error: unkn
 
   if (error instanceof AgentPaymentError) {
     const code =
-      error.code === 'budget_denied' ? 'AUTHORIZATION_DENIED' : 'TRANSACTION_STATE_CONFLICT';
+      error.code === 'budget_denied' || error.code === 'payments_paused'
+        ? 'AUTHORIZATION_DENIED'
+        : 'TRANSACTION_STATE_CONFLICT';
     return sendProblem(reply, createApiProblem(code, traceId));
   }
 

@@ -13,6 +13,7 @@ import {
   ScrollText,
   ReceiptText,
   ShieldCheck,
+  ShieldAlert,
   UserRound,
   X,
 } from 'lucide-react';
@@ -34,6 +35,7 @@ import { ServicesPage } from './ServicesPage.js';
 import { MandatesPage } from './MandatesPage.js';
 import { ConfirmationsPage } from './ConfirmationsPage.js';
 import { TransactionsPage } from './TransactionsPage.js';
+import { ControlsPage } from './ControlsPage.js';
 
 function FullPageStatus() {
   return (
@@ -328,6 +330,13 @@ function ConsoleShell() {
             <ReceiptText size={18} />
             交易
           </NavLink>
+          <NavLink
+            className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}
+            to="/controls"
+          >
+            <ShieldAlert size={18} />
+            安全控制
+          </NavLink>
         </nav>
         <div className="nav-footer">
           <p>{developer.email}</p>
@@ -378,7 +387,9 @@ function ConsoleShell() {
                     ? '人工确认'
                     : location.pathname === '/transactions'
                       ? '交易与时间线'
-                      : '控制台'}
+                      : location.pathname === '/controls'
+                        ? '安全控制'
+                        : '控制台'}
           </span>
           <span className="environment-label">本地环境</span>
         </header>
@@ -401,6 +412,7 @@ export function App() {
         <Route path="/mandates" element={<MandatesPage />} />
         <Route path="/confirmations" element={<ConfirmationsPage />} />
         <Route path="/transactions" element={<TransactionsPage />} />
+        <Route path="/controls" element={<ControlsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

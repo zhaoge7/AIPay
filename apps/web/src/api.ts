@@ -157,6 +157,11 @@ export interface TransactionTimeline {
   readonly events: readonly TimelineEvent[];
 }
 
+export interface PaymentControlView {
+  readonly paymentsPaused: boolean;
+  readonly updatedAt: string | null;
+}
+
 interface SuccessEnvelope<Data> {
   readonly data: Data;
   readonly meta: Readonly<{ traceId: string }>;
@@ -322,4 +327,20 @@ export const consoleApi = Object.freeze({
   },
   timeline: (transactionId: string) =>
     request<TransactionTimeline>(`/v1/transactions/${transactionId}/timeline`),
+  paymentControls: () => request<PaymentControlView>('/v1/payment-controls'),
+  setPaymentControls: (paymentsPaused: boolean) =>
+    request<PaymentControlView>('/v1/payment-controls', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ paymentsPaused }),
+    }),
+  transitionMandate: (mandateId: string, action: 'pause' | 'resume' | 'revoke') =>
+    request<Readonly<{ readonly mandateId: string; readonly status: MandateView['status'] }>>(
+      `/v1/mandates/${mandateId}/lifecycle`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action }),
+      },
+    ),
 });

@@ -1,8 +1,8 @@
 import { Buffer } from 'node:buffer';
 
-import { createApiProblem, parseResourceId } from '@aipay/contracts';
+import { createApiProblem, parseResourceId, type ResourceId } from '@aipay/contracts';
 import { PaymentProviderError } from '@aipay/payment';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply } from 'fastify';
 
 import { createTraceId, sendProblem } from '../http/problem.js';
 import { A2MError, A2MService } from './service.js';
@@ -39,6 +39,28 @@ function paymentValidationHeader(value: {
   ).toString('base64url');
 }
 
+async function sendPaymentRequired(
+  reply: FastifyReply,
+  service: A2MService,
+  serviceId: ResourceId<'svc'>,
+) {
+  try {
+    const required = await service.createPaymentRequired(serviceId);
+    return await reply.status(402).header('payment-needed', required.headerValue).send({
+      code: 'PAYMENT_NEEDED',
+      amount: required.amount,
+      currency: required.currency,
+      goodsName: required.goodsName,
+    });
+  } catch (error) {
+    if (error instanceof A2MError && error.code === 'service_unavailable') {
+      return sendProblem(reply, createApiProblem('SERVICE_UNAVAILABLE', createTraceId()));
+    }
+
+    throw error;
+  }
+}
+
 export function registerA2MRoutes(app: FastifyInstance, service: A2MService): void {
   app.get<{ Params: ResourceParams }>(
     '/v1/a2m/resources/:serviceId',
@@ -48,13 +70,7 @@ export function registerA2MRoutes(app: FastifyInstance, service: A2MService): vo
       const paymentProof = request.headers['payment-proof'];
 
       if (typeof paymentProof !== 'string' || paymentProof.length === 0) {
-        const required = await service.createPaymentRequired(serviceId);
-        return await reply.status(402).header('payment-needed', required.headerValue).send({
-          code: 'PAYMENT_NEEDED',
-          amount: required.amount,
-          currency: required.currency,
-          goodsName: required.goodsName,
-        });
+        return await sendPaymentRequired(reply, service, serviceId);
       }
 
       try {
@@ -69,11 +85,7 @@ export function registerA2MRoutes(app: FastifyInstance, service: A2MService): vo
         });
       } catch (error) {
         if (error instanceof A2MError && error.code === 'invalid_payment_proof') {
-          const required = await service.createPaymentRequired(serviceId);
-          return await reply
-            .status(402)
-            .header('payment-needed', required.headerValue)
-            .send({ code: 'PAYMENT_NEEDED' });
+          return await sendPaymentRequired(reply, service, serviceId);
         }
 
         if (

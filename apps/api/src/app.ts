@@ -10,6 +10,7 @@ import { registerA2MRoutes } from './a2m/routes.js';
 import type { A2MService } from './a2m/service.js';
 import { registerAgentSignatureRoutes } from './agent-signatures/routes.js';
 import { registerApiKeyRoutes } from './api-keys/routes.js';
+import { registerPaymentControlRoutes } from './controls/routes.js';
 import { AuthError, AuthService, type AuthResult } from './auth/service.js';
 import { createRequireSession } from './auth/session.js';
 import { createTraceId, sendProblem } from './http/problem.js';
@@ -118,6 +119,7 @@ export async function buildApp(options: BuildAppOptions) {
   app.decorateRequest('authenticatedAgentId', null);
   app.decorateRequest('authenticatedSigningKeyId', null);
   registerApiKeyRoutes(app, options.database);
+  registerPaymentControlRoutes(app, options.database);
   registerAgentRoutes(app, options.database);
   if (options.a2mService !== undefined) {
     registerA2MRoutes(app, options.a2mService);

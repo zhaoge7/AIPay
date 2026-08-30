@@ -7,6 +7,7 @@ import type { A2MBillSigningInput, A2MPaymentVerification, AlipayA2MClient } fro
 import { v7 as uuidv7 } from 'uuid';
 
 import type { A2MRuntimeConfig } from './config.js';
+import { developerPaymentsPaused } from '../controls/service.js';
 
 const paymentWindowMs = 30 * 60 * 1_000;
 
@@ -190,6 +191,7 @@ export class A2MService {
         'services.unitPriceAmountMinor',
         'services.status as serviceStatus',
         'merchants.status as merchantStatus',
+        'merchants.developerId as merchantDeveloperId',
       ])
       .where('services.id', '=', getResourceUuid(serviceId))
       .executeTakeFirst();
@@ -198,7 +200,8 @@ export class A2MService {
       service?.serviceStatus !== 'enabled' ||
       service.merchantStatus !== 'active' ||
       (this.#config.merchantId !== null &&
-        service.merchantId !== getResourceUuid(this.#config.merchantId))
+        service.merchantId !== getResourceUuid(this.#config.merchantId)) ||
+      (await developerPaymentsPaused(this.#database, service.merchantDeveloperId))
     ) {
       throw new A2MError('service_unavailable');
     }

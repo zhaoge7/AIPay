@@ -6,6 +6,7 @@ import test from 'node:test';
 import { parseResourceId } from '@aipay/contracts';
 import { createDatabase } from '@aipay/database';
 
+import { PaymentControlService } from '../dist/controls/service.js';
 import {
   TransactionCreationError,
   TransactionCreationService,
@@ -231,6 +232,27 @@ test('creates Transactions only from matching active Quote and Mandate reference
     ),
     (error) => error instanceof TransactionCreationError && error.code === 'policy_denied',
   );
+
+  const paymentControls = new PaymentControlService(database);
+  const developerId = parseResourceId(`dev_${developer.id}`, 'dev');
+  assert.deepEqual(await paymentControls.get(developerId), {
+    paymentsPaused: false,
+    updatedAt: null,
+  });
+  const pausedControl = await paymentControls.set(developerId, true);
+  assert.equal(pausedControl.paymentsPaused, true);
+  assert.notEqual(pausedControl.updatedAt, null);
+  const globallyPausedQuote = await quote('300');
+  await assert.rejects(
+    creation.create(
+      agentId,
+      parseResourceId(`qte_${globallyPausedQuote.id}`, 'qte'),
+      mandateId,
+      'transaction-test-globally-paused',
+    ),
+    (error) => error instanceof TransactionCreationError && error.code === 'principal_paused',
+  );
+  assert.equal((await paymentControls.set(developerId, false)).paymentsPaused, false);
 
   await database
     .updateTable('mandates')

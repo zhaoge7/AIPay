@@ -11,6 +11,7 @@ import { createDatabase } from '@aipay/database';
 
 import { loadA2MRuntimeConfig } from '../dist/a2m/config.js';
 import { A2MService } from '../dist/a2m/service.js';
+import { PaymentControlService } from '../dist/controls/service.js';
 import { buildApp } from '../dist/app.js';
 import { runMigrations } from '../../../packages/database/scripts/migration-runner.mjs';
 import {
@@ -193,6 +194,13 @@ test('runs persistent A2M 402, strict verification and retryable fulfillment', a
     a2mService: new A2MService(database, client, config, () => now),
   });
   const path = `/v1/a2m/resources/svc_${catalogService.id}`;
+  const controls = new PaymentControlService(database);
+  const developerId = `dev_${developer.id}`;
+  await controls.set(developerId, true);
+  const globallyPaused = await app.inject({ method: 'GET', url: path });
+  assert.equal(globallyPaused.statusCode, 503);
+  assert.equal(await database.selectFrom('a2mOrders').selectAll().executeTakeFirst(), undefined);
+  await controls.set(developerId, false);
   const paymentRequired = await app.inject({ method: 'GET', url: path });
   assert.equal(paymentRequired.statusCode, 402);
   const paymentNeeded = decodeHeader(paymentRequired.headers['payment-needed']);

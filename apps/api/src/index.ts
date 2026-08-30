@@ -44,6 +44,7 @@ export { AuthError, AuthService, type AuthResult } from './auth/service.js';
 export { ApiKeyError, ApiKeyService } from './api-keys/service.js';
 export { AgentError, AgentService } from './agents/service.js';
 export { AgentSignatureError, AgentSignatureService } from './agent-signatures/service.js';
+export { PaymentControlService, type PaymentControlView } from './controls/service.js';
 export { MerchantError, MerchantService } from './merchants/service.js';
 export { ServiceCatalogService, ServiceError } from './services/service.js';
 export { MandateDraftError, MandateDraftService } from './mandates/service.js';

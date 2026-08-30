@@ -6,6 +6,7 @@ import test from 'node:test';
 import { parseResourceId } from '@aipay/contracts';
 import { createDatabase } from '@aipay/database';
 
+import { PaymentControlService } from '../dist/controls/service.js';
 import {
   ManualApprovalError,
   ManualApprovalService,
@@ -202,6 +203,14 @@ test('creates pending transactions above threshold without executing payment', a
     }),
     (error) => error instanceof TransactionQueryError,
   );
+
+  const paymentControls = new PaymentControlService(database);
+  await paymentControls.set(ownerId, true);
+  await assert.rejects(
+    approval.decide(ownerId, pending.transactionId, 'approve'),
+    (error) => error instanceof ManualApprovalError && error.code === 'inactive_mandate',
+  );
+  await paymentControls.set(ownerId, false);
 
   await database
     .updateTable('mandates')

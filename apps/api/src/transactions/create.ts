@@ -16,6 +16,8 @@ import {
   evaluateMerchantCategoryPolicy,
 } from '@aipay/policy';
 
+import { developerPaymentsPaused } from '../controls/service.js';
+
 export type TransactionCreationErrorCode =
   | 'not_found'
   | 'mandate_inactive'
@@ -27,7 +29,8 @@ export type TransactionCreationErrorCode =
   | 'transaction_exists'
   | 'invalid_idempotency_key'
   | 'idempotency_conflict'
-  | 'idempotency_in_progress';
+  | 'idempotency_in_progress'
+  | 'principal_paused';
 
 export class TransactionCreationError extends Error {
   readonly code: TransactionCreationErrorCode;
@@ -228,6 +231,10 @@ export class TransactionCreationService {
 
         if (mandate === undefined) {
           throw new TransactionCreationError('not_found');
+        }
+
+        if (await developerPaymentsPaused(transaction, mandate.principalId)) {
+          throw new TransactionCreationError('principal_paused');
         }
 
         if (mandate.status !== 'active' || now >= mandate.validUntil) {

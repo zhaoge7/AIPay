@@ -2,6 +2,7 @@ import { getResourceUuid, parseResourceId, type ResourceId } from '@aipay/contra
 import type { Database } from '@aipay/database';
 import type { PaymentProvider } from '@aipay/payment';
 
+import { developerPaymentsPaused } from '../controls/service.js';
 import { BudgetReservationError, BudgetReservationService } from '../mandates/reservations.js';
 import {
   PaymentExecutionError,
@@ -9,7 +10,8 @@ import {
   type PaymentAttemptView,
 } from './execution.js';
 
-export type AgentPaymentErrorCode = 'not_found' | 'invalid_state' | 'budget_denied';
+export type AgentPaymentErrorCode =
+  'not_found' | 'invalid_state' | 'budget_denied' | 'payments_paused';
 
 export class AgentPaymentError extends Error {
   readonly code: AgentPaymentErrorCode;
@@ -26,6 +28,7 @@ interface OwnedTransaction {
   readonly mandateId: ResourceId<'mdt'>;
   readonly amountMinor: string;
   readonly status: string;
+  readonly principalId: string;
 }
 
 export class AgentPaymentExecutionService {
@@ -46,6 +49,10 @@ export class AgentPaymentExecutionService {
     transactionId: ResourceId<'txn'>,
   ): Promise<Readonly<PaymentAttemptView>> {
     const owned = await this.#ownedTransaction(agentId, transactionId);
+
+    if (await developerPaymentsPaused(this.#database, owned.principalId)) {
+      throw new AgentPaymentError('payments_paused');
+    }
 
     if (owned.status === 'payment_pending' || owned.status === 'payment_review') {
       const existing = await this.#execution.latest(transactionId);
@@ -162,6 +169,7 @@ export class AgentPaymentExecutionService {
     const transaction = await this.#database
       .selectFrom('transactions')
       .select(['id', 'mandateId', 'amountMinor', 'status'])
+      .select('principalId')
       .where('id', '=', getResourceUuid(transactionId))
       .where('agentId', '=', getResourceUuid(agentId))
       .executeTakeFirst();
@@ -175,6 +183,7 @@ export class AgentPaymentExecutionService {
       mandateId: parseResourceId(`mdt_${transaction.mandateId}`, 'mdt'),
       amountMinor: transaction.amountMinor,
       status: transaction.status,
+      principalId: transaction.principalId,
     });
   }
 

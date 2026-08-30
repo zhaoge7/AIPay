@@ -15,6 +15,12 @@ export interface DeveloperTable {
   updatedAt: Generated<Date>;
 }
 
+export interface DeveloperPaymentControlTable {
+  developerId: string;
+  paymentsPaused: Generated<boolean>;
+  updatedAt: Generated<Date>;
+}
+
 export interface AuthSessionTable {
   id: Generated<string>;
   developerId: string;
@@ -411,6 +417,7 @@ export interface MandateAllowedCategoryTable {
 
 export interface AIPayDatabase {
   developers: DeveloperTable;
+  developerPaymentControls: DeveloperPaymentControlTable;
   authSessions: AuthSessionTable;
   apiKeys: ApiKeyTable;
   agents: AgentTable;

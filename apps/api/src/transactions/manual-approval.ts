@@ -12,6 +12,8 @@ import {
   evaluateMerchantCategoryPolicy,
 } from '@aipay/policy';
 
+import { developerPaymentsPaused } from '../controls/service.js';
+
 export type ManualApprovalErrorCode =
   | 'not_found'
   | 'inactive_mandate'
@@ -408,6 +410,10 @@ export class ManualApprovalService {
       }
 
       if (action === 'approve') {
+        if (await developerPaymentsPaused(transaction, mandate.principalId)) {
+          throw new ManualApprovalError('inactive_mandate');
+        }
+
         if (mandate.status !== 'active' || now >= mandate.validUntil) {
           throw new ManualApprovalError('inactive_mandate');
         }

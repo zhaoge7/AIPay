@@ -1483,6 +1483,93 @@ input:focus-visible {
   font-size: 10px;
 }
 
+.global-control {
+  min-height: 122px;
+  padding: 20px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  border: 1px solid #b8d9c5;
+  border-left: 4px solid var(--green);
+  background: #f4faf6;
+}
+
+.global-control.paused {
+  border-color: #e2bdb6;
+  border-left-color: var(--danger);
+  background: #fff6f4;
+}
+
+.control-icon {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  background: #dff1e5;
+  color: var(--green);
+}
+
+.global-control.paused .control-icon {
+  background: #f7ded9;
+  color: var(--danger);
+}
+
+.global-control p {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.global-control h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.global-control span {
+  display: block;
+  margin-top: 6px;
+  color: #75807e;
+  font-size: 11px;
+}
+
+.control-mandates {
+  margin-top: 16px;
+}
+
+.control-list article {
+  min-height: 66px;
+  padding: 10px 12px 10px 16px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 14px;
+  border-bottom: 1px solid #e9edec;
+}
+
+.control-list article:last-child {
+  border-bottom: 0;
+}
+
+.control-list article > div {
+  min-width: 0;
+}
+
+.control-list article strong,
+.control-list article .mono-value {
+  display: block;
+}
+
+.control-list article .mono-value {
+  margin-top: 5px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .sr-only {
   position: absolute;
   width: 1px;
@@ -1704,6 +1791,15 @@ input:focus-visible {
 
   .filter-bar .primary-command,
   .filter-bar .text-command {
+    width: 100%;
+  }
+
+  .global-control {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .global-control > button {
+    grid-column: 1 / -1;
     width: 100%;
   }
 }
