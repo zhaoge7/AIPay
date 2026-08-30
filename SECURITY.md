@@ -66,7 +66,7 @@ This threat model uses STRIDE across assets and trust boundaries, then maps conc
 | Sensitive data in logs or telemetry                     | Disclosure             | Error objects or provider responses include keys, identities, proof values     | Stable error catalog, no vendor messages in core, fixed timeline fields, low-sensitivity telemetry                                                               | P10-02 must automate log, database, bundle, and telemetry scans                                                   |
 | Malicious dependency or build artifact                  | Tampering              | Compromised package or mutable image enters CI/deployment                      | Exact dependency versions, frozen lockfile, supply-chain age policy, pinned CI Actions and PostgreSQL image digest                                               | P10 deployment must generate SBOM, scan artifacts, and verify image provenance                                    |
 | Database loss or operator error                         | Denial, repudiation    | Data is deleted, corrupted, or restored inconsistently                         | Migrations, constraints, Outbox, rebuild tests                                                                                                                   | P10-05 requires encrypted backup and independent restore drill with measured RPO/RTO                              |
-| Service abuse and resource exhaustion                   | Denial                 | Account, Agent, IP, or expensive endpoint is flooded                           | Bounded request schemas and database connection limits                                                                                                           | P10-04 must add layered rate limits; P10-06 must alert on failure/queue/budget anomalies                          |
+| Service abuse and resource exhaustion                   | Denial                 | Account, Agent, IP, or expensive endpoint is flooded                           | Bounded schemas and layered IP/credential/Agent/interface rate limits with stable 429 and Retry-After                                                            | Multi-instance deployment needs a shared limiter store; P10-06 must alert on repeated limits                      |
 
 ## Abuse Cases
 
@@ -96,6 +96,17 @@ This threat model uses STRIDE across assets and trust boundaries, then maps conc
 | Merchant endpoint remains 503/429                                     | Controlled transport exhausts the explicit attempt budget                                                                                               | Delivery and Outbox end in dead letter with stable error/status evidence                            |
 
 The fixed `pnpm run test:faults` command runs this matrix serially. Random sleep, random failures, and production chaos are not CI acceptance evidence.
+
+### Abuse Limits
+
+| Dimension           | Default window | Limit | Key material                                                           |
+| ------------------- | -------------- | ----: | ---------------------------------------------------------------------- |
+| Source IP           | 60 seconds     |   120 | Fastify normalized socket IP; proxy headers are not trusted by default |
+| Developer account   | 60 seconds     |    60 | SHA-256 of Cookie or Bearer credential, never the raw secret           |
+| Agent               | 60 seconds     |    60 | Socket IP plus declared Agent ID, bounded again by source IP           |
+| Sensitive interface | 60 seconds     |    10 | Method, route, and credential/Agent/IP identity                        |
+
+Authentication, Transaction creation, confirmation, payment, credential rotation, and global controls are sensitive interfaces. Limits use the official Fastify plugin and fail closed on store errors. The MVP in-memory store is valid only for a single API instance; a multi-instance deployment requires a shared store and repeated P10-04 verification.
 
 ## Reporting a Vulnerability
 

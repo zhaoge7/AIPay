@@ -6,6 +6,11 @@ import type { PaymentProvider } from '@aipay/payment';
 import Fastify, { type FastifyError, type FastifyReply } from 'fastify';
 
 import { registerAgentRoutes } from './agents/routes.js';
+import {
+  DEFAULT_RATE_LIMITS,
+  registerRateLimits,
+  type RateLimitOptions,
+} from './abuse/rate-limit.js';
 import { registerA2MRoutes } from './a2m/routes.js';
 import type { A2MService } from './a2m/service.js';
 import { registerAgentSignatureRoutes } from './agent-signatures/routes.js';
@@ -57,6 +62,7 @@ export interface BuildAppOptions {
   readonly alipayProvider?: PaymentProvider;
   readonly paymentProofIssuer?: PaymentProofIssuer;
   readonly a2mService?: A2MService;
+  readonly rateLimits?: RateLimitOptions;
 }
 
 function sendAuthError(reply: FastifyReply, traceId: string, error: AuthError) {
@@ -107,6 +113,7 @@ export async function buildApp(options: BuildAppOptions) {
   const secureCookies = options.secureCookies ?? false;
 
   await app.register(cookie);
+  await registerRateLimits(app, options.rateLimits);
   await app.register(rawBody, { global: false, encoding: false, runFirst: true });
   app.addContentTypeParser(
     'application/x-www-form-urlencoded',
@@ -156,6 +163,32 @@ export async function buildApp(options: BuildAppOptions) {
 
   app.setErrorHandler((error, request, reply) => {
     const traceId = createTraceId();
+
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'statusCode' in error &&
+      error.statusCode === 429
+    ) {
+      if (
+        'retryAfterSeconds' in error &&
+        typeof error.retryAfterSeconds === 'number' &&
+        error.retryAfterSeconds > 0
+      ) {
+        reply.header('retry-after', String(error.retryAfterSeconds));
+      }
+
+      const retryAfter = Number(reply.getHeader('retry-after'));
+      return sendProblem(
+        reply,
+        createApiProblem('RATE_LIMITED', traceId, {
+          retryAfterMs:
+            Number.isFinite(retryAfter) && retryAfter > 0
+              ? retryAfter * 1_000
+              : (options.rateLimits?.timeWindowMs ?? DEFAULT_RATE_LIMITS.timeWindowMs),
+        }),
+      );
+    }
 
     if (isValidationError(error)) {
       return sendProblem(
