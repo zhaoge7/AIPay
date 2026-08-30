@@ -101,7 +101,7 @@ Agent 请求验签采用 RFC 9421。当前验证端点为 `POST /v1/agent/verify
 首次启动签发服务前生成本地 issuer 配置，并将输出加入本地 `.env`（禁止提交）：
 
 ```bash
-pnpm --filter @aipay/api generate:issuer
+pnpm --filter @aipay/api prepare:env
 ```
 
 所有者通过 `POST /v1/mandates/:mandateId/issue` 把 draft 原子签发为 active Mandate；`POST /v1/mandates/verify` 使用数据库中的 system 公钥独立验证 JCS Ed25519 proof。issuer 私钥只存在于 `AIPAY_MANDATE_SIGNING_PRIVATE_KEY` 或后续密钥服务，不写数据库。

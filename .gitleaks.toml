@@ -1,0 +1,29 @@
+[extend]
+useDefault = true
+
+[[rules]]
+id = "aipay-session-token"
+description = "AIPay opaque session token"
+regex = '''aps_[A-Za-z0-9_-]{43}'''
+keywords = ["aps_"]
+
+[[rules]]
+id = "aipay-api-key"
+description = "AIPay machine API key"
+regex = '''apk_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.[A-Za-z0-9_-]{43}'''
+keywords = ["apk_"]
+
+[[rules]]
+id = "aipay-private-key-environment"
+description = "AIPay private key environment value"
+regex = '''AIPAY_(?:MANDATE_SIGNING_PRIVATE_KEY|ALIPAY_PRIVATE_KEY|A2M_PRIVATE_PKCS_KEY|MERCHANT_PRIVATE_KEY|AGENT_PRIVATE_KEY)\s*=\s*[A-Za-z0-9+/]{80,}={0,2}'''
+keywords = ["PRIVATE_KEY"]
+
+[allowlist]
+description = "Local dependencies, build output, and protected untracked configuration"
+paths = [
+  '''(^|/)(?:\.git|node_modules|dist|test-results|playwright-report)(/|$)''',
+  '''(^|/)\.env(?:\.|$)''',
+  '''(^|/)\.alipay-sandbox\.json$''',
+  '''(^|/)examples/\.env\.quickstart$''',
+]

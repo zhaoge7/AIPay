@@ -79,6 +79,18 @@ test('creates the complete core schema and enforces Contract bindings', async (c
     expectedTables,
   );
 
+  const sensitiveColumns = await client.query(`
+    SELECT table_name, column_name
+    FROM information_schema.columns
+    WHERE table_schema = 'aipay'
+      AND (
+        column_name ~ '(private_key|client_secret|access_token|session_token|api_key_token|payment_proof)$'
+        OR column_name = 'password'
+      )
+    ORDER BY table_name, column_name
+  `);
+  assert.deepEqual(sensitiveColumns.rows, []);
+
   const statusConstraint = await client.query(
     "SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conname = 'transactions_status_check'",
   );

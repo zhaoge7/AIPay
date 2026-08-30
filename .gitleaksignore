@@ -1,0 +1,11 @@
+apps/api/test/alipay-webhook.test.mjs:generic-api-key:263
+apps/web/test/accessibility-responsive.spec.mjs:generic-api-key:10
+packages/contracts/test/delivery-receipt.test.mjs:generic-api-key:21
+packages/contracts/test/quote.test.mjs:generic-api-key:17
+packages/contracts/test/mandate.test.mjs:generic-api-key:19
+packages/contracts/test/compatibility.test.mjs:generic-api-key:109
+packages/contracts/test/payment-proof.test.mjs:generic-api-key:22
+packages/policy/test/merchant-category.test.mjs:generic-api-key:15
+packages/sdk-ts/test/sdk.test.mjs:generic-api-key:26
+853d03a818e2e88a0e81c4b59bc55fa5b2f5b3cd:packages/contracts/test/compatibility.test.mjs:generic-api-key:103
+c9d6ef29a26f453b1f637aa9b18b0b33b7cd6d72:packages/contracts/test/compatibility.test.mjs:generic-api-key:97
