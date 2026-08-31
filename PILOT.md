@@ -46,6 +46,14 @@ Evidence URLs may point to an access-controlled repository, ticket, signed docum
 
 The manifest fixes the accepted merchant, service, Agent, pilot window, external implementation evidence, capability and price evidence, traffic attestation, recorded integration failures, and commercial-intent status. Changing scope creates a reviewed new manifest version rather than silently widening the count.
 
+Generate a new non-overwriting `0600` report from the deployed database:
+
+```bash
+pnpm run pilot:report -- pilot/manifest.json pilot/reports/report.json
+```
+
+The command validates the Manifest, verifies its catalog scope, and calculates accepted/rejected calls, payment and delivery rates, Fake Provider exclusions, missing reservations, multiple successful attempts, Provider call-ledger completeness, Proof/Receipt bindings, Outbox timeline completeness, onboarding duration, failure groups, and Gate MVP database eligibility. It prints only file/hash metadata; review the private report and external evidence together.
+
 ## Acceptance Rules
 
 | Checklist item | Required evidence                                                                                                                                                                                                                                    |

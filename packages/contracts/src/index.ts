@@ -160,3 +160,10 @@ export {
   type AuditOutcome,
   type AuditResultWire,
 } from './audit-event.js';
+
+export {
+  PilotManifestSchema,
+  PilotManifestValidationError,
+  parsePilotManifest,
+  type PilotManifest,
+} from './pilot-manifest.js';
