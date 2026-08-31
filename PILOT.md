@@ -23,7 +23,7 @@ pnpm run partner-kit:build -- .local-state/partner-kit-<partner>-<version>
 pnpm run partner-kit:test
 ```
 
-Send the named partner the two tarballs, `SHA256SUMS`, `KIT.json`, and `INSTALL.md` through the approved private channel. The SDK remains one role-based package; `@aipay/contracts` is its runtime contract dependency. Do not upload either package to npm until repository licensing and publication authorization are explicit.
+Send the named partner the required tarballs, `SHA256SUMS`, `KIT.json`, and `INSTALL.md` through the approved private channel. Every partner receives the role-based SDK plus its runtime Contracts; a FastGPT-compatible Agent operator also receives the MCP bridge. Do not upload any package to npm until repository licensing and publication authorization are explicit.
 
 For a FastGPT-compatible operator, use the private `examples/agent-mcp-bridge` package. The partner deploys it outside AIPay and configures its Streamable HTTP `/mcp` endpoint plus Bearer header in FastGPT. The bridge exposes start/resume/deliver tools so a redirect-based payment can cross Agent turns without changing the Payment Attempt or resource URL. Exact HTTPS origin, paths, query keys, Agent key and Mandate are operator configuration, not model input. Follow its README and verify its package tests before distribution.
 

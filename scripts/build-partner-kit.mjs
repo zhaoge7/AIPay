@@ -39,17 +39,22 @@ async function sha256(path) {
 
 const contractsArchive = 'aipay-contracts-0.1.0.tgz';
 const sdkArchive = 'aipay-sdk-ts-0.1.0.tgz';
+const bridgeArchive = 'aipay-agent-mcp-bridge-0.1.0.tgz';
 await run('pnpm', ['--filter', '@aipay/contracts', 'build']);
 await run('pnpm', ['--filter', '@aipay/sdk-ts', 'build']);
+await run('pnpm', ['--filter', '@aipay/agent-mcp-bridge', 'build']);
 await run('pnpm', ['pack', '--out', join(outputDirectory, contractsArchive)], {
   cwd: join(repositoryRoot, 'packages/contracts'),
 });
 await run('pnpm', ['pack', '--out', join(outputDirectory, sdkArchive)], {
   cwd: join(repositoryRoot, 'packages/sdk-ts'),
 });
+await run('pnpm', ['pack', '--out', join(outputDirectory, bridgeArchive)], {
+  cwd: join(repositoryRoot, 'examples/agent-mcp-bridge'),
+});
 
 const archives = await Promise.all(
-  [contractsArchive, sdkArchive].map(async (filename) =>
+  [contractsArchive, sdkArchive, bridgeArchive].map(async (filename) =>
     Object.freeze({ filename, sha256: await sha256(join(outputDirectory, filename)) }),
   ),
 );
@@ -65,13 +70,14 @@ const metadata = Object.freeze({
 const checksums = `${archives.map(({ filename, sha256: digest }) => `${digest}  ${filename}`).join('\n')}\n`;
 const instructions = `# AIPay private pilot SDK kit
 
-Requires Node.js 24.x. Verify the two archives against \`SHA256SUMS\`, then install both into the partner's independent project:
+Requires Node.js 24.x. Verify the archives against \`SHA256SUMS\`. Every partner installs Contracts and SDK; a FastGPT-compatible Agent operator also installs the MCP bridge:
 
 \`\`\`bash
 npm install ./aipay-contracts-0.1.0.tgz ./aipay-sdk-ts-0.1.0.tgz
+npm install ./aipay-agent-mcp-bridge-0.1.0.tgz
 \`\`\`
 
-Import \`AgentClient\` or \`MerchantClient\` from \`@aipay/sdk-ts\`. Generate private keys in the partner environment and register only public keys. This kit is for the named closed-test partner; it is not an npm publication or a license grant.
+Import \`AgentClient\` or \`MerchantClient\` from \`@aipay/sdk-ts\`. FastGPT-compatible operators follow the bridge README and expose it only behind authorized HTTPS. Generate private keys in the partner environment and register only public keys. This kit is for the named closed-test partner; it is not an npm publication or a license grant.
 `;
 
 await Promise.all([
