@@ -10,9 +10,11 @@ import { createDatabase } from '@aipay/database';
 import { buildPilotReport } from '../dist/pilot/report.js';
 import { loadDatabaseUrl } from '../../../packages/database/scripts/script-config.mjs';
 
-const [manifestPath, outputPath] = process.argv.slice(2);
+const rawArguments = process.argv.slice(2);
+const arguments_ = rawArguments[0] === '--' ? rawArguments.slice(1) : rawArguments;
+const [manifestPath, outputPath] = arguments_;
 
-if (manifestPath === undefined || outputPath === undefined || process.argv.length !== 4) {
+if (manifestPath === undefined || outputPath === undefined || arguments_.length !== 2) {
   throw new Error('Usage: pilot-report.mjs <manifest.json> <new-report.json>');
 }
 

@@ -8,9 +8,11 @@ import { fileURLToPath } from 'node:url';
 
 const execute = promisify(execFile);
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const [requestedOutput] = process.argv.slice(2);
+const rawArguments = process.argv.slice(2);
+const arguments_ = rawArguments[0] === '--' ? rawArguments.slice(1) : rawArguments;
+const [requestedOutput] = arguments_;
 
-if (requestedOutput === undefined || process.argv.length !== 3) {
+if (requestedOutput === undefined || arguments_.length !== 1) {
   throw new Error('Usage: build-partner-kit.mjs <new-output-directory>');
 }
 
