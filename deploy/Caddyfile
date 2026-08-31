@@ -1,0 +1,30 @@
+{
+	admin off
+	auto_https disable_redirects
+}
+
+aipay.localhost:8443 {
+	tls internal
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		Content-Security-Policy "default-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'"
+		-Server
+	}
+
+	@backend path /v1/* /internal/*
+	handle @backend {
+		reverse_proxy 127.0.0.1:3101
+	}
+
+	handle {
+		root * {$AIPAY_ROOT}/apps/web/dist
+		try_files {path} /index.html
+		file_server
+	}
+}

@@ -47,6 +47,9 @@ importers:
       '@aipay/policy':
         specifier: workspace:*
         version: link:../../packages/policy
+      '@aipay/worker':
+        specifier: workspace:*
+        version: link:../worker
       '@fastify/cookie':
         specifier: 11.1.2
         version: 11.1.2
@@ -75,9 +78,6 @@ importers:
       '@aipay/sdk-ts':
         specifier: workspace:*
         version: link:../../packages/sdk-ts
-      '@aipay/worker':
-        specifier: workspace:*
-        version: link:../worker
       '@modelcontextprotocol/client':
         specifier: 2.0.0
         version: 2.0.0

@@ -23,6 +23,14 @@ export function registerMonitoringRoutes(
   const expectedHash = tokenHash(metricsToken);
   const service = new MonitoringService(database);
 
+  app.get('/internal/health', async (_request, reply) => {
+    await database
+      .selectFrom('developerPaymentControls')
+      .select(({ fn }) => fn.countAll().as('count'))
+      .executeTakeFirstOrThrow();
+    return reply.send({ status: 'ok' });
+  });
+
   app.get('/internal/metrics', async (request: FastifyRequest, reply) => {
     const provided = request.headers.authorization;
     const match = typeof provided === 'string' ? /^Bearer ([^\s]+)$/u.exec(provided) : null;

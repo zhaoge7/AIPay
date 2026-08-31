@@ -1,0 +1,22 @@
+[Unit]
+Description=AIPay closed-test HTTPS gateway
+After=aipay-api.service
+Requires=aipay-api.service
+
+[Service]
+Type=simple
+WorkingDirectory=@@ROOT@@
+Environment=AIPAY_ROOT=@@ROOT@@
+Environment=XDG_DATA_HOME=@@ROOT@@/.local-state/caddy/data
+Environment=XDG_CONFIG_HOME=@@ROOT@@/.local-state/caddy/config
+ExecStart=@@CADDY@@ run --config @@ROOT@@/deploy/Caddyfile --adapter caddyfile
+ExecReload=/bin/kill -USR1 $MAINPID
+StandardOutput=append:@@ROOT@@/.local-state/logs/caddy.log
+StandardError=append:@@ROOT@@/.local-state/logs/caddy.log
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target

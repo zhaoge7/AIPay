@@ -1,0 +1,22 @@
+[Unit]
+Description=AIPay closed-test Webhook Worker
+After=aipay-caddy.service
+Requires=aipay-caddy.service
+
+[Service]
+Type=simple
+WorkingDirectory=@@ROOT@@
+EnvironmentFile=@@ROOT@@/.env
+Environment=NODE_ENV=development
+Environment=AIPAY_CLOSED_TEST=true
+Environment=NODE_EXTRA_CA_CERTS=@@ROOT@@/.local-state/caddy/data/caddy/pki/authorities/local/root.crt
+ExecStart=@@NODE@@ @@ROOT@@/apps/worker/scripts/start-closed-test.mjs
+StandardOutput=append:@@ROOT@@/.local-state/logs/worker.log
+StandardError=append:@@ROOT@@/.local-state/logs/worker.log
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,18 @@
+[Unit]
+Description=AIPay closed-test API
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=@@ROOT@@
+EnvironmentFile=@@ROOT@@/.env
+ExecStart=/usr/bin/env NODE_ENV=development AIPAY_CLOSED_TEST=true AIPAY_API_HOST=127.0.0.1 AIPAY_API_PORT=3101 @@NODE@@ @@ROOT@@/apps/api/scripts/start-closed-test.mjs
+StandardOutput=append:@@ROOT@@/.local-state/logs/api.log
+StandardError=append:@@ROOT@@/.local-state/logs/api.log
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target

@@ -8,6 +8,7 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsc --build",
+    "closed-test": "node --env-file-if-exists=../../.env scripts/start-closed-test.mjs",
     "test": "pnpm run build && node --test --test-concurrency=1 test/**/*.test.mjs"
   },
   "dependencies": {

@@ -10,12 +10,14 @@
     "build": "tsc --build",
     "test": "pnpm --filter @aipay/worker build && pnpm run build && node --test --test-concurrency=1 test/**/*.test.mjs",
     "prepare:env": "node scripts/prepare-local-env.mjs",
+    "upgrade:env": "node scripts/upgrade-local-env.mjs",
     "sdk:sandbox": "node --env-file-if-exists=../../.env scripts/start-sdk-sandbox.mjs"
   },
   "dependencies": {
     "@aipay/config": "workspace:*",
     "@aipay/contracts": "workspace:*",
     "@aipay/database": "workspace:*",
+    "@aipay/worker": "workspace:*",
     "@aipay/policy": "workspace:*",
     "@aipay/payment": "workspace:*",
     "@fastify/cookie": "11.1.2",
@@ -29,7 +31,6 @@
   },
   "devDependencies": {
     "@aipay/sdk-ts": "workspace:*",
-    "@aipay/worker": "workspace:*",
     "@modelcontextprotocol/client": "2.0.0"
   }
 }

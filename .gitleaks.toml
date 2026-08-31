@@ -22,7 +22,7 @@ keywords = ["PRIVATE_KEY", "BACKUP_KEY", "METRICS_TOKEN"]
 [allowlist]
 description = "Local dependencies, build output, and protected untracked configuration"
 paths = [
-  '''(^|/)(?:\.git|node_modules|dist|test-results|playwright-report)(/|$)''',
+  '''(^|/)(?:\.git|\.local-state|node_modules|dist|test-results|playwright-report)(/|$)''',
   '''(^|/)\.env(?:\.|$)''',
   '''(^|/)\.alipay-sandbox\.json$''',
   '''(^|/)examples/\.env\.quickstart$''',

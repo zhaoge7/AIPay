@@ -34,6 +34,7 @@ Thumbs.db
 
 # Local deployment state
 .vercel/
+.local-state/
 *.local
 
 # Local-only planning documents

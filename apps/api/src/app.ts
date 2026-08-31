@@ -3,6 +3,7 @@ import rawBody from 'fastify-raw-body';
 import { createApiProblem, createApiSuccess } from '@aipay/contracts';
 import type { Database } from '@aipay/database';
 import type { PaymentProvider } from '@aipay/payment';
+import type { Ed25519WebhookSigner } from '@aipay/worker';
 import Fastify, { type FastifyError, type FastifyReply } from 'fastify';
 
 import { registerAgentRoutes } from './agents/routes.js';
@@ -16,6 +17,7 @@ import type { A2MService } from './a2m/service.js';
 import { registerAgentSignatureRoutes } from './agent-signatures/routes.js';
 import { registerApiKeyRoutes } from './api-keys/routes.js';
 import { registerPaymentControlRoutes } from './controls/routes.js';
+import { registerClosedTestCallback } from './closed-test/callback.js';
 import { AuthError, AuthService, type AuthResult } from './auth/service.js';
 import { createRequireSession } from './auth/session.js';
 import { createTraceId, sendProblem } from './http/problem.js';
@@ -65,6 +67,7 @@ export interface BuildAppOptions {
   readonly a2mService?: A2MService;
   readonly rateLimits?: RateLimitOptions;
   readonly metricsToken?: string;
+  readonly closedTestWebhookSigner?: Ed25519WebhookSigner;
 }
 
 function sendAuthError(reply: FastifyReply, traceId: string, error: AuthError) {
@@ -164,6 +167,9 @@ export async function buildApp(options: BuildAppOptions) {
   }
   if (options.metricsToken !== undefined) {
     registerMonitoringRoutes(app, options.database, options.metricsToken);
+  }
+  if (options.closedTestWebhookSigner !== undefined) {
+    registerClosedTestCallback(app, options.closedTestWebhookSigner);
   }
 
   app.setErrorHandler((error, request, reply) => {
