@@ -7,3 +7,5 @@ The public TypeScript SDK exposes separate `AgentClient` and `MerchantClient` ro
 Private keys remain in the caller process. Pass base64 PKCS8 Ed25519 values through a protected local environment or secret manager and never log client options.
 
 See [the repository quickstart](../../docs/quickstart.md) and the standalone projects under `examples/paid-http-api` and `examples/paid-mcp-tool`.
+
+For a named design partner, AIPay maintainers create a private, checksummed tarball kit with `pnpm run partner-kit:build -- <new-directory>`. The partner installs both included archives in an independent Node.js 24 project. The kit is not a public npm release or a license grant.

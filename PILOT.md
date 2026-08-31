@@ -16,6 +16,15 @@ Before onboarding, agree on:
 - UTC pilot window, environment URL, payment product, incident contact route, and global-pause owner;
 - what constitutes a useful service call and how development, retries, load tests, loops, and synthetic traffic are excluded.
 
+Create the private SDK kit in a new protected directory and verify the exact artifact in a temporary repository-external npm project:
+
+```bash
+pnpm run partner-kit:build -- .local-state/partner-kit-<partner>-<version>
+pnpm run partner-kit:test
+```
+
+Send the named partner the two tarballs, `SHA256SUMS`, `KIT.json`, and `INSTALL.md` through the approved private channel. The SDK remains one role-based package; `@aipay/contracts` is its runtime contract dependency. Do not upload either package to npm until repository licensing and publication authorization are explicit.
+
 ## Onboarding Sessions
 
 Record start and completion times independently for merchant and Agent. Keep failures as stable phase/code entries rather than free-form secrets or payloads.
