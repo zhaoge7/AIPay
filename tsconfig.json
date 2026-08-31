@@ -9,6 +9,7 @@
     { "path": "./apps/worker" },
     { "path": "./examples/paid-http-api" },
     { "path": "./examples/paid-mcp-tool" },
+    { "path": "./examples/agent-mcp-bridge" },
     { "path": "./packages/contracts" },
     { "path": "./packages/sdk-ts" },
     { "path": "./packages/payment" },
