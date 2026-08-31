@@ -47,6 +47,7 @@ try {
       join(kitDirectory, 'aipay-contracts-0.1.0.tgz'),
       join(kitDirectory, 'aipay-sdk-ts-0.1.0.tgz'),
       join(kitDirectory, 'aipay-agent-mcp-bridge-0.1.0.tgz'),
+      join(kitDirectory, 'aipay-merchant-http-adapter-0.1.0.tgz'),
     ],
     consumerDirectory,
   );
@@ -56,19 +57,21 @@ try {
 import { AgentClient, MerchantClient, decodePaymentRequirement } from '@aipay/sdk-ts';
 import { parseResourceId } from '@aipay/contracts';
 import { createAgentBridgeMcpServer } from '@aipay/agent-mcp-bridge';
+import { createMerchantAdapterApp } from '@aipay/merchant-http-adapter';
 
 assert.equal(typeof AgentClient, 'function');
 assert.equal(typeof MerchantClient, 'function');
 assert.equal(typeof decodePaymentRequirement, 'function');
 assert.equal(typeof parseResourceId, 'function');
 assert.equal(typeof createAgentBridgeMcpServer, 'function');
+assert.equal(typeof createMerchantAdapterApp, 'function');
 `,
   );
   await run(process.execPath, ['verify.mjs'], consumerDirectory);
   const metadata = JSON.parse(await readFile(join(kitDirectory, 'KIT.json'), 'utf8'));
   assert.equal(metadata.schemaVersion, '1');
   assert.equal(metadata.nodeVersion, process.version);
-  assert.equal(metadata.packages.length, 3);
+  assert.equal(metadata.packages.length, 4);
   assert.equal(
     metadata.packages.every(({ sha256 }) => /^[0-9a-f]{64}$/.test(sha256)),
     true,
