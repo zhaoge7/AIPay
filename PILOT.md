@@ -27,6 +27,8 @@ Send the named partner the required tarballs, `SHA256SUMS`, `KIT.json`, and `INS
 
 For a FastGPT-compatible operator, use the private `examples/agent-mcp-bridge` package. The partner deploys it outside AIPay and configures its Streamable HTTP `/mcp` endpoint plus Bearer header in FastGPT. The bridge exposes start/resume/deliver tools so a redirect-based payment can cross Agent turns without changing the Payment Attempt or resource URL. Exact HTTPS origin, paths, query keys, Agent key and Mandate are operator configuration, not model input. Follow its README and verify its package tests before distribution.
 
+For an API provider that cannot modify its upstream service in the pilot window, use the private `examples/merchant-http-adapter` package. The provider deploys it outside AIPay, owns the Merchant/upstream keys and PostgreSQL state, and configures one exact paid public GET plus one exact public upstream GET. The adapter persists consume/result/Receipt progress and uses the recovery API after a lost consume response. It is only suitable for the agreed low-risk JSON capability; it is not a generic reverse proxy or authority to resell a third party's API.
+
 ## Onboarding Sessions
 
 Record start and completion times independently for merchant and Agent. Keep failures as stable phase/code entries rather than free-form secrets or payloads.
