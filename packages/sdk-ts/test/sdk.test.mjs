@@ -27,6 +27,10 @@ const ids = {
   merchant: 'mch_01890f3e-9b44-7cc2-98c5-7f6a1b2c3d50',
   service: 'svc_01890f3e-9b44-7cc2-98c5-7f6a1b2c3d51',
   quote: 'qte_01890f3e-9b44-7cc2-98c5-7f6a1b2c3d52',
+  transaction: 'txn_01890f3e-9b44-7cc2-98c5-7f6a1b2c3d53',
+  paymentAttempt: 'pat_01890f3e-9b44-7cc2-98c5-7f6a1b2c3d54',
+  paymentProof: 'ppf_01890f3e-9b44-7cc2-98c5-7f6a1b2c3d55',
+  delivery: 'dlv_01890f3e-9b44-7cc2-98c5-7f6a1b2c3d56',
 };
 
 function keyPair() {
@@ -53,6 +57,21 @@ function quote(signature = 'A'.repeat(86)) {
     issuedAt: '2026-08-29T00:00:00.000Z',
     expiresAt: '2026-08-29T00:05:00.000Z',
     proof: { scheme: 'aipay-jcs-ed25519-v1', keyId: ids.key, value: signature },
+  };
+}
+
+function paymentProof() {
+  return {
+    schemaVersion: '1',
+    paymentProofId: ids.paymentProof,
+    transactionId: ids.transaction,
+    paymentAttemptId: ids.paymentAttempt,
+    merchantId: ids.merchant,
+    serviceId: ids.service,
+    amount: { currency: 'CNY', amountMinor: '10' },
+    issuedAt: '2026-08-29T00:00:00.000Z',
+    expiresAt: '2026-08-29T00:05:00.000Z',
+    proof: { scheme: 'aipay-jcs-ed25519-v1', keyId: ids.key, value: 'A'.repeat(86) },
   };
 }
 
@@ -147,4 +166,32 @@ test('MerchantClient creates and signs a Quote without exposing its private key'
   });
   assert.equal(payment.requirement.quote.quoteId, ids.quote);
   assert.equal(call, 2);
+});
+
+test('MerchantClient recovers the original Delivery after a consumed-Proof crash window', async () => {
+  const pair = keyPair();
+  const recovered = {
+    paymentProofId: ids.paymentProof,
+    deliveryId: ids.delivery,
+    consumedAt: '2026-08-29T00:01:00.000Z',
+  };
+  const client = new MerchantClient({
+    baseUrl: 'http://127.0.0.1:3000',
+    apiKey: 'apk_test.secret',
+    merchantId: ids.merchant,
+    keyId: ids.key,
+    privateKeyPkcs8Base64: pair.privateBase64,
+    fetch: async (input, init) => {
+      const request = new Request(input, init);
+      assert.equal(
+        request.url,
+        `http://127.0.0.1:3000/v1/merchants/${ids.merchant}/payment-proofs/recover`,
+      );
+      assert.equal(request.headers.get('authorization'), 'Bearer apk_test.secret');
+      assert.deepEqual(await request.json(), { paymentProof: paymentProof() });
+      return Response.json({ data: recovered });
+    },
+  });
+
+  assert.deepEqual(await client.recoverPaymentProofConsumption(paymentProof()), recovered);
 });

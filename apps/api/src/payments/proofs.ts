@@ -491,4 +491,59 @@ export class PaymentProofIssuer {
 
     return Object.freeze({ paymentProofId: paymentProof.paymentProofId, ...outcome });
   }
+
+  async recoverConsumption(
+    developerId: ResourceId<'dev'>,
+    merchantId: ResourceId<'mch'>,
+    value: unknown,
+  ): Promise<
+    Readonly<{
+      paymentProofId: ResourceId<'ppf'>;
+      deliveryId: ResourceId<'dlv'>;
+      consumedAt: string;
+    }>
+  > {
+    const paymentProof = await this.#verifySignature(value);
+    const row = await this.#database
+      .selectFrom('paymentProofs')
+      .innerJoin('merchants', 'merchants.id', 'paymentProofs.merchantId')
+      .leftJoin('deliveries', 'deliveries.paymentProofId', 'paymentProofs.id')
+      .select([
+        ...proofColumns.map((column) => `paymentProofs.${column}` as const),
+        'paymentProofs.status',
+        'paymentProofs.consumedAt',
+        'merchants.developerId',
+        'deliveries.id as deliveryId',
+      ])
+      .where('paymentProofs.id', '=', getResourceUuid(paymentProof.paymentProofId))
+      .executeTakeFirst();
+
+    if (row?.developerId !== getResourceUuid(developerId)) {
+      throw new PaymentProofError('not_found');
+    }
+
+    if (
+      paymentProof.merchantId !== merchantId ||
+      row.merchantId !== getResourceUuid(merchantId) ||
+      row.transactionId !== getResourceUuid(paymentProof.transactionId) ||
+      row.paymentAttemptId !== getResourceUuid(paymentProof.paymentAttemptId) ||
+      row.serviceId !== getResourceUuid(paymentProof.serviceId) ||
+      row.amountMinor !== paymentProof.amount.amountMinor ||
+      row.proofKeyId !== getResourceUuid(paymentProof.proof.keyId) ||
+      row.proofValue.byteLength !== 64 ||
+      !timingSafeEqual(row.proofValue, Buffer.from(paymentProof.proof.value, 'base64url'))
+    ) {
+      throw new PaymentProofError('binding_mismatch');
+    }
+
+    if (row.status !== 'consumed' || row.consumedAt === null || row.deliveryId === null) {
+      throw new PaymentProofError('invalid_state');
+    }
+
+    return Object.freeze({
+      paymentProofId: paymentProof.paymentProofId,
+      deliveryId: parseResourceId(`dlv_${row.deliveryId}`, 'dlv'),
+      consumedAt: formatUtcDateTime(row.consumedAt),
+    });
+  }
 }

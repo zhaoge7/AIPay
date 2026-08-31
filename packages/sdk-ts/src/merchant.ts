@@ -168,6 +168,18 @@ export class MerchantClient {
     });
   }
 
+  recoverPaymentProofConsumption(paymentProof: PaymentProofWire): Promise<
+    Readonly<{
+      paymentProofId: ResourceId<'ppf'>;
+      deliveryId: ResourceId<'dlv'>;
+      consumedAt: string;
+    }>
+  > {
+    return this.#request(`v1/merchants/${this.#merchantId}/payment-proofs/recover`, {
+      paymentProof: toPaymentProofWire(parsePaymentProof(paymentProof)),
+    });
+  }
+
   async submitDeliveryReceipt(input: {
     readonly deliveryId: ResourceId<'dlv'>;
     readonly paymentProof: PaymentProofWire;

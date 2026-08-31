@@ -299,6 +299,14 @@ test('issues, verifies and consumes a Payment Proof exactly once with bound reso
   });
   assert.equal(wrongOwner.statusCode, 403);
 
+  const recoverBeforeConsumption = await app.inject({
+    method: 'POST',
+    url: `/v1/merchants/mch_${merchant.id}/payment-proofs/recover`,
+    headers: { cookie: owner.cookie },
+    payload: { paymentProof },
+  });
+  assert.equal(recoverBeforeConsumption.statusCode, 409);
+
   const consumed = await app.inject({
     method: 'POST',
     url: `/v1/merchants/mch_${merchant.id}/payment-proofs/consume`,
@@ -316,6 +324,31 @@ test('issues, verifies and consumes a Payment Proof exactly once with bound reso
     payload: { paymentProof },
   });
   assert.equal(replay.statusCode, 409);
+  const recover = () =>
+    app.inject({
+      method: 'POST',
+      url: `/v1/merchants/mch_${merchant.id}/payment-proofs/recover`,
+      headers: { cookie: owner.cookie },
+      payload: { paymentProof },
+    });
+  const recovered = await recover();
+  assert.equal(recovered.statusCode, 200);
+  assert.deepEqual(body(recovered).data, body(consumed).data);
+  assert.deepEqual(body(await recover()).data, body(consumed).data);
+  const wrongMerchantRecovery = await app.inject({
+    method: 'POST',
+    url: `/v1/merchants/mch_${alternateMerchant.id}/payment-proofs/recover`,
+    headers: { cookie: owner.cookie },
+    payload: { paymentProof },
+  });
+  assert.equal(wrongMerchantRecovery.statusCode, 401);
+  const wrongOwnerRecovery = await app.inject({
+    method: 'POST',
+    url: `/v1/merchants/mch_${merchant.id}/payment-proofs/recover`,
+    headers: { cookie: other.cookie },
+    payload: { paymentProof },
+  });
+  assert.equal(wrongOwnerRecovery.statusCode, 403);
 
   const firstState = await database
     .selectFrom('paymentProofs')

@@ -193,4 +193,29 @@ export function registerPaymentProofRoutes(
       }
     },
   );
+  app.post<{ Params: MerchantParams; Body: ConsumeBody }>(
+    '/v1/merchants/:merchantId/payment-proofs/recover',
+    {
+      schema: { params: merchantParamsSchema, body: consumeBodySchema },
+      preHandler: requireDeveloper,
+    },
+    async (request, reply) => {
+      const traceId = createTraceId();
+
+      try {
+        const recovered = await issuer.recoverConsumption(
+          developerId(request),
+          parseResourceId(request.params.merchantId, 'mch'),
+          request.body.paymentProof,
+        );
+        return await reply.send(createApiSuccess(recovered, traceId));
+      } catch (error) {
+        if (error instanceof PaymentProofError) {
+          return sendPaymentProofError(reply, traceId, error);
+        }
+
+        throw error;
+      }
+    },
+  );
 }
