@@ -1,6 +1,6 @@
 {
   "name": "@aipay/merchant-http-adapter",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Private pilot adapter for an externally operated paid JSON GET service",
   "type": "module",

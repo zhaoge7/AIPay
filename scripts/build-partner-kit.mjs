@@ -37,10 +37,10 @@ async function sha256(path) {
     .digest('hex');
 }
 
-const contractsArchive = 'aipay-contracts-0.1.0.tgz';
-const sdkArchive = 'aipay-sdk-ts-0.1.0.tgz';
-const bridgeArchive = 'aipay-agent-mcp-bridge-0.1.0.tgz';
-const adapterArchive = 'aipay-merchant-http-adapter-0.1.0.tgz';
+const contractsArchive = 'aipay-contracts-0.2.0.tgz';
+const sdkArchive = 'aipay-sdk-ts-0.2.0.tgz';
+const bridgeArchive = 'aipay-agent-mcp-bridge-0.2.0.tgz';
+const adapterArchive = 'aipay-merchant-http-adapter-0.2.0.tgz';
 await run('pnpm', ['--filter', '@aipay/contracts', 'build']);
 await run('pnpm', ['--filter', '@aipay/sdk-ts', 'build']);
 await run('pnpm', ['--filter', '@aipay/agent-mcp-bridge', 'build']);
@@ -78,9 +78,9 @@ const instructions = `# AIPay private pilot SDK kit
 Requires Node.js 24.x. Verify the archives against \`SHA256SUMS\`. Every partner installs Contracts and SDK; install only the adapter for the partner's admitted role:
 
 \`\`\`bash
-npm install ./aipay-contracts-0.1.0.tgz ./aipay-sdk-ts-0.1.0.tgz
-npm install ./aipay-agent-mcp-bridge-0.1.0.tgz
-npm install ./aipay-merchant-http-adapter-0.1.0.tgz
+npm install ./aipay-contracts-0.2.0.tgz ./aipay-sdk-ts-0.2.0.tgz
+npm install ./aipay-agent-mcp-bridge-0.2.0.tgz
+npm install ./aipay-merchant-http-adapter-0.2.0.tgz
 \`\`\`
 
 Import \`AgentClient\` or \`MerchantClient\` from \`@aipay/sdk-ts\`. FastGPT-compatible operators follow the bridge README; API providers using the fixed JSON GET path follow the Merchant adapter README. Expose adapters only behind authorized HTTPS. Generate private keys in the partner environment and register only public keys. This kit is for the named closed-test partner; it is not an npm publication or a license grant.

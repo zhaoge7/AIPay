@@ -29,7 +29,7 @@ function toolError(error: unknown) {
 }
 
 export function createAgentBridgeMcpServer(service: AgentBridgeService): McpServer {
-  const server = new McpServer({ name: 'aipay-agent-bridge', version: '0.1.0' });
+  const server = new McpServer({ name: 'aipay-agent-bridge', version: '0.2.0' });
 
   server.registerTool(
     'aipay_start_paid_get',
