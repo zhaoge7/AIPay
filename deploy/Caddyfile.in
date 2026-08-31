@@ -3,9 +3,8 @@
 	auto_https disable_redirects
 }
 
-aipay.localhost:8443 {
-	tls internal
-	encode zstd gzip
+@@SITE@@ {
+@@TLS@@	encode zstd gzip
 
 	header {
 		Strict-Transport-Security "max-age=31536000"

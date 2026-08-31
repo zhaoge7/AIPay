@@ -8,18 +8,27 @@ import process from 'node:process';
 import { setTimeout } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
+import { loadDeploymentConfig, renderCaddyfile } from './config.mjs';
+
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const node = '/home/zz/.nvm/versions/node/v24.19.0/bin/node';
 const pnpm = '/home/zz/.nvm/versions/node/v24.19.0/bin/pnpm';
 const caddy = '/home/zz/.local/bin/caddy';
 const unitDirectory = '/home/zz/.config/systemd/user';
 const stateDirectory = resolve(root, '.local-state/caddy');
+const caddyConfig = resolve(stateDirectory, 'Caddyfile');
+const deployment = loadDeploymentConfig(process.env);
+const runtimeEnvironment = {
+  ...process.env,
+  AIPAY_ROOT: root,
+  PATH: `${dirname(node)}:${process.env.PATH ?? ''}`,
+};
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
     cwd: root,
     encoding: 'utf8',
-    env: { ...process.env, AIPAY_ROOT: root },
+    env: runtimeEnvironment,
     stdio: options.capture === true ? 'pipe' : 'inherit',
   });
 
@@ -36,7 +45,7 @@ function succeeds(command, args) {
   const result = spawnSync(command, args, {
     cwd: root,
     encoding: 'utf8',
-    env: { ...process.env, AIPAY_ROOT: root },
+    env: runtimeEnvironment,
     stdio: 'ignore',
   });
   return result.status === 0;
@@ -61,7 +70,19 @@ run(pnpm, ['--filter', '@aipay/api', 'upgrade:env']);
 run(pnpm, ['run', 'db:up']);
 run(pnpm, ['run', 'db:migrate']);
 run(pnpm, ['run', 'build']);
-run(caddy, ['validate', '--config', resolve(root, 'deploy/Caddyfile'), '--adapter', 'caddyfile'], {
+if (deployment.paymentProvider === 'alipay_web') {
+  const { loadAlipayConfig } = await import('../packages/config/dist/index.js');
+  const alipay = loadAlipayConfig(process.env);
+  const expectedNotifyUrl = `${deployment.publicOrigin}/v1/payments/alipay/webhook`;
+
+  if (alipay.notifyUrl !== expectedNotifyUrl) {
+    throw new Error('AIPAY_ALIPAY_NOTIFY_URL must match the external payment webhook');
+  }
+}
+const caddyTemplate = await readFile(resolve(root, 'deploy/Caddyfile.in'), 'utf8');
+const renderedCaddy = renderCaddyfile(caddyTemplate, deployment);
+await writeFile(caddyConfig, renderedCaddy, { encoding: 'utf8', mode: 0o600 });
+run(caddy, ['validate', '--config', caddyConfig, '--adapter', 'caddyfile'], {
   capture: true,
 });
 
@@ -70,7 +91,16 @@ for (const unit of ['aipay-api', 'aipay-caddy', 'aipay-worker']) {
   const rendered = template
     .replaceAll('@@ROOT@@', root)
     .replaceAll('@@NODE@@', node)
-    .replaceAll('@@CADDY@@', caddy);
+    .replaceAll('@@CADDY@@', caddy)
+    .replaceAll('@@CADDY_CONFIG@@', caddyConfig)
+    .replaceAll('@@DEPLOYMENT_MODE@@', deployment.mode)
+    .replaceAll('@@PUBLIC_ORIGIN@@', deployment.publicOrigin)
+    .replaceAll(
+      '@@NODE_EXTRA_CA@@',
+      deployment.requiresInternalCa
+        ? `Environment=NODE_EXTRA_CA_CERTS=${resolve(stateDirectory, 'data/caddy/pki/authorities/local/root.crt')}`
+        : '',
+    );
   await writeFile(resolve(unitDirectory, `${unit}.service`), rendered, { encoding: 'utf8' });
 }
 
@@ -106,11 +136,11 @@ if (!apiReady) {
 
 run('systemctl', ['--user', 'restart', 'aipay-caddy.service']);
 const rootCertificate = resolve(stateDirectory, 'data/caddy/pki/authorities/local/root.crt');
-let certificateReady = false;
+let certificateReady = !deployment.requiresInternalCa;
 
 for (let attempt = 0; attempt < 120; attempt += 1) {
   try {
-    await access(rootCertificate);
+    if (deployment.requiresInternalCa) await access(rootCertificate);
     certificateReady = true;
     break;
   } catch {
@@ -118,23 +148,19 @@ for (let attempt = 0; attempt < 120; attempt += 1) {
   }
 }
 
-if (!certificateReady) {
+if (deployment.requiresInternalCa && !certificateReady) {
   throw new Error('Caddy local CA was not created');
 }
 
 let httpsReady = false;
 
 for (let attempt = 0; attempt < 120; attempt += 1) {
-  if (
-    succeeds('curl', [
-      '--silent',
-      '--show-error',
-      '--fail',
-      '--cacert',
-      rootCertificate,
-      'https://aipay.localhost:8443/internal/health',
-    ])
-  ) {
+  const curlArguments = ['--silent', '--show-error', '--fail'];
+
+  if (deployment.requiresInternalCa) curlArguments.push('--cacert', rootCertificate);
+  curlArguments.push(`${deployment.publicOrigin}/internal/health`);
+
+  if (succeeds('curl', curlArguments)) {
     httpsReady = true;
     break;
   }
@@ -153,5 +179,5 @@ for (const unit of ['aipay-api.service', 'aipay-caddy.service', 'aipay-worker.se
 }
 
 process.stdout.write(
-  `AIPay closed-test services installed for https://aipay.localhost:8443 (CA: ${rootCertificate})\n`,
+  `AIPay ${deployment.mode} closed-test services installed for ${deployment.publicOrigin}${deployment.requiresInternalCa ? ` (CA: ${rootCertificate})` : ''}\n`,
 );

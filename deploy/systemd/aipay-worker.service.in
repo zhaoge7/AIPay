@@ -9,7 +9,9 @@ WorkingDirectory=@@ROOT@@
 EnvironmentFile=@@ROOT@@/.env
 Environment=NODE_ENV=development
 Environment=AIPAY_CLOSED_TEST=true
-Environment=NODE_EXTRA_CA_CERTS=@@ROOT@@/.local-state/caddy/data/caddy/pki/authorities/local/root.crt
+Environment=AIPAY_DEPLOYMENT_MODE=@@DEPLOYMENT_MODE@@
+Environment=AIPAY_PUBLIC_ORIGIN=@@PUBLIC_ORIGIN@@
+@@NODE_EXTRA_CA@@
 ExecStart=@@NODE@@ @@ROOT@@/apps/worker/scripts/start-closed-test.mjs
 StandardOutput=append:@@ROOT@@/.local-state/logs/worker.log
 StandardError=append:@@ROOT@@/.local-state/logs/worker.log

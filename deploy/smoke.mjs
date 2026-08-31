@@ -7,7 +7,7 @@ import { loadDatabaseConfig } from '../packages/config/dist/index.js';
 import { parseResourceId } from '../packages/contracts/dist/index.js';
 import { createDatabase, enqueueOutboxEvent } from '../packages/database/dist/index.js';
 
-const origin = 'https://aipay.localhost:8443';
+const origin = process.env.AIPAY_PUBLIC_ORIGIN ?? 'https://aipay.localhost:8443';
 const metricsToken = process.env.AIPAY_METRICS_TOKEN;
 
 if (metricsToken === undefined) {

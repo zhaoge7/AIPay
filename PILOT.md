@@ -87,3 +87,12 @@ P11 and Gate MVP remain incomplete until a reviewer can inspect this external ev
 6. Generate and review the evidence report before marking any P11 item complete.
 
 External availability is still required. The current `aipay.localhost` deployment is not reachable by design partners; obtaining a real domain, DNS/TLS, firewall exposure, and partner authorization is a prerequisite, not an implementation detail to bypass with fabricated traffic.
+
+For the authorized public pilot host, set `AIPAY_PUBLIC_ORIGIN` to a bare HTTPS port-443 origin and configure the Alipay Web sandbox/production variables in the protected `.env`; `AIPAY_ALIPAY_NOTIFY_URL` must equal `<origin>/v1/payments/alipay/webhook`. Then run:
+
+```bash
+AIPAY_PUBLIC_ORIGIN=https://pilot.your-domain.cn pnpm run deploy:pilot
+AIPAY_PUBLIC_ORIGIN=https://pilot.your-domain.cn pnpm run deploy:smoke:pilot
+```
+
+External mode refuses localhost, non-443 origins and Fake Provider. Caddy obtains a public certificate and the Worker removes its loopback callback exception. Do not start this mode before DNS, inbound HTTPS, partner authorization and payment credentials are in place.

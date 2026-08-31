@@ -9,7 +9,7 @@ WorkingDirectory=@@ROOT@@
 Environment=AIPAY_ROOT=@@ROOT@@
 Environment=XDG_DATA_HOME=@@ROOT@@/.local-state/caddy/data
 Environment=XDG_CONFIG_HOME=@@ROOT@@/.local-state/caddy/config
-ExecStart=@@CADDY@@ run --config @@ROOT@@/deploy/Caddyfile --adapter caddyfile
+ExecStart=@@CADDY@@ run --config @@CADDY_CONFIG@@ --adapter caddyfile
 ExecReload=/bin/kill -USR1 $MAINPID
 StandardOutput=append:@@ROOT@@/.local-state/logs/caddy.log
 StandardError=append:@@ROOT@@/.local-state/logs/caddy.log
