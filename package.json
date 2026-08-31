@@ -33,7 +33,8 @@
     "incident:drill": "pnpm --filter @aipay/api build && pnpm --filter @aipay/worker build && pnpm --filter @aipay/database build && node --test --test-concurrency=1 apps/api/test/incident-response.test.mjs",
     "monitoring:check": "promtool check rules ops/prometheus/aipay-alerts.yml",
     "deploy:local": "/home/zz/.nvm/versions/node/v24.19.0/bin/node deploy/install-local.mjs",
-    "deploy:smoke": "NODE_EXTRA_CA_CERTS=.local-state/caddy/data/caddy/pki/authorities/local/root.crt /home/zz/.nvm/versions/node/v24.19.0/bin/node --env-file=.env deploy/smoke.mjs"
+    "deploy:smoke": "NODE_EXTRA_CA_CERTS=.local-state/caddy/data/caddy/pki/authorities/local/root.crt /home/zz/.nvm/versions/node/v24.19.0/bin/node --env-file=.env deploy/smoke.mjs",
+    "gate:p10": "pnpm run check && pnpm run security:scan && pnpm run monitoring:check && pnpm run test:faults && pnpm run incident:drill && pnpm --filter @aipay/database test && pnpm run deploy:smoke"
   },
   "packageManager": "pnpm@11.24.0+sha512.bd27e345e976dcb0be0b7a1228217b049a817e21b1f355c90dbe7dc46671895a8bc1e6d06c24554505ea93ea0b45f489a27ec1bfbc8de6a9659fca0f16fa0000",
   "devDependencies": {

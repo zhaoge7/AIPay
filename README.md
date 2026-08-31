@@ -191,6 +191,8 @@ pending Delivery 默认 5 分钟截止，并快照 Proof 消费时的 refundPoli
 | `pnpm run format:check`          | 检查 Prettier 格式                     |
 | `pnpm run check`                 | 依次执行类型、Lint 和格式检查          |
 | `pnpm run test`                  | 执行全部 workspace 测试                |
+| `pnpm run incident:drill`        | 演练止付、隔离、交易恢复和签名通知     |
+| `pnpm run gate:p10`              | 验收安全、恢复、备份、监控和闭测部署   |
 | `pnpm run db:up`                 | 启动固定版本的本地 PostgreSQL          |
 | `pnpm run db:migrate`            | 应用所有待执行迁移                     |
 | `pnpm run db:reset`              | 安全重建开发/测试数据库并重放迁移      |
