@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "1",
+  "pilotId": "pilot_example",
+  "reviewedAt": "2026-09-30T01:00:00.000Z",
+  "evidenceReviewerAlias": "reviewer-example",
+  "externalMerchantApproved": false,
+  "externalAgentApproved": false,
+  "capabilityAndPriceApproved": false,
+  "trafficEvidenceApproved": false,
+  "commercialEvidenceApproved": false,
+  "incidents": [],
+  "economics": {
+    "infrastructureCostAmountMinor": "0",
+    "softwareFeeAmountMinor": "0",
+    "supportMinutes": 0,
+    "evidenceUrl": "https://evidence.example.com/pilot/economics"
+  }
+}

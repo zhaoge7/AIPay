@@ -69,6 +69,14 @@ pnpm run pilot:report -- pilot/manifest.json pilot/traffic.json pilot/reports/re
 
 The command validates the Manifest and traffic ledger, verifies catalog/scope/classification, and calculates accepted/excluded/unclassified calls, missing ledger transactions, payment and delivery rates, AIPay confirmation/provider-action/fully-autonomous shares, Fake Provider exclusions, missing reservations, multiple successful attempts, Provider call-ledger completeness, Proof/Receipt bindings, Outbox timeline completeness, onboarding duration, failure groups, and Gate MVP database eligibility. It prints only file/hash metadata; review the private report and external evidence together. Start the real pilot only after migrations `1787788830000` and `1787788831000`; older terminal Transactions/Attempts are not guessed as previously confirmed or action-required.
 
+After the pilot window closes, create private `pilot/review-evidence.json` from its example, have an authorized reviewer inspect every external evidence reference, and generate the non-overwriting review:
+
+```bash
+pnpm run pilot:review -- pilot/reports/report.json pilot/review-evidence.json pilot/reports/review.json
+```
+
+Gate MVP requires 1,000 accepted calls, zero unauthorized/duplicate/Fake payments, 100% audit, fully classified traffic, approved external Merchant/Agent/capability/price/traffic evidence, and approved paid intent/fee. Continuing payment orchestration additionally requires at least 98.5% payment and delivery success, Merchant onboarding within 30 minutes, Agent onboarding within one workday, no unresolved integration failure, at least 30% fully autonomous calls, and no SEV-1 or unresolved incident. Any miss recommends `shrink_to_metering_billing`. Complete and sign `MVP_REVIEW_TEMPLATE.md`; the generated recommendation never makes the final decision.
+
 ## Acceptance Rules
 
 | Checklist item | Required evidence                                                                                                                                                                                                                                    |

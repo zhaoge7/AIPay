@@ -38,6 +38,7 @@
     "deploy:smoke:pilot": "/home/zz/.nvm/versions/node/v24.19.0/bin/node --env-file=.env deploy/smoke.mjs",
     "gate:p10": "pnpm run check && pnpm run security:scan && pnpm run monitoring:check && pnpm run test:faults && pnpm run incident:drill && pnpm --filter @aipay/database test && pnpm run deploy:smoke",
     "pilot:report": "pnpm --filter @aipay/contracts build && pnpm --filter @aipay/database build && pnpm --filter @aipay/api build && node --env-file-if-exists=.env apps/api/scripts/pilot-report.mjs",
+    "pilot:review": "pnpm --filter @aipay/contracts build && pnpm --filter @aipay/api build && node apps/api/scripts/pilot-review.mjs",
     "partner-kit:build": "node scripts/build-partner-kit.mjs",
     "partner-kit:test": "node scripts/test-partner-kit.mjs"
   },

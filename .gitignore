@@ -47,4 +47,5 @@ Thumbs.db
 /pilot/*.json
 !/pilot/manifest.example.json
 !/pilot/traffic.example.json
+!/pilot/review-evidence.example.json
 /pilot/reports/

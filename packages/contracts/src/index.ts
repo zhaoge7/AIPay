@@ -176,3 +176,10 @@ export {
   type PilotTrafficExclusionReason,
   type PilotTrafficLedger,
 } from './pilot-traffic.js';
+
+export {
+  PilotReviewEvidenceSchema,
+  PilotReviewEvidenceValidationError,
+  parsePilotReviewEvidence,
+  type PilotReviewEvidence,
+} from './pilot-review.js';
