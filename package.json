@@ -30,6 +30,7 @@
     "security:sensitive-data": "node scripts/sensitive-data-audit.mjs",
     "security:scan": "pnpm run security:secrets && pnpm run security:sensitive-data",
     "test:faults": "pnpm --filter @aipay/api build && pnpm --filter @aipay/worker build && pnpm --filter @aipay/database build && node --test --test-concurrency=1 apps/api/test/payment-execution.test.mjs apps/api/test/fake-provider-e2e.test.mjs apps/api/test/alipay-webhook.test.mjs packages/database/test/outbox.test.mjs apps/worker/test/webhook-dispatcher.test.mjs",
+    "incident:drill": "pnpm --filter @aipay/api build && pnpm --filter @aipay/worker build && pnpm --filter @aipay/database build && node --test --test-concurrency=1 apps/api/test/incident-response.test.mjs",
     "monitoring:check": "promtool check rules ops/prometheus/aipay-alerts.yml",
     "deploy:local": "/home/zz/.nvm/versions/node/v24.19.0/bin/node deploy/install-local.mjs",
     "deploy:smoke": "NODE_EXTRA_CA_CERTS=.local-state/caddy/data/caddy/pki/authorities/local/root.crt /home/zz/.nvm/versions/node/v24.19.0/bin/node --env-file=.env deploy/smoke.mjs"
