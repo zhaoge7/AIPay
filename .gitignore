@@ -42,3 +42,8 @@ Thumbs.db
 /DEVELOPMENT_CHECKLIST.md
 /docs/
 /.alipay-sandbox.json
+
+# Private design-partner evidence
+/pilot/*.json
+!/pilot/manifest.example.json
+/pilot/reports/

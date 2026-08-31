@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "1",
+  "pilotId": "pilot_example",
+  "window": {
+    "startedAt": "2026-09-01T00:00:00.000Z",
+    "endedAt": "2026-09-30T00:00:00.000Z"
+  },
+  "environmentUrl": "https://pilot.example.com",
+  "merchant": {
+    "operatorAlias": "merchant-example",
+    "merchantId": "mch_01890f3e-9b43-7cc2-88c5-7f6a1b2c3d4e",
+    "serviceId": "svc_01890f3e-9b43-7cc2-88c5-7f6a1b2c3d4e",
+    "serviceType": "api",
+    "unit": "request",
+    "unitPrice": { "currency": "CNY", "amountMinor": "1" },
+    "capabilityEvidenceUrl": "https://evidence.example.com/merchant/capability",
+    "pricingEvidenceUrl": "https://evidence.example.com/merchant/pricing",
+    "implementationEvidenceUrl": "https://evidence.example.com/merchant/integration",
+    "onboardingStartedAt": "2026-09-01T00:00:00.000Z",
+    "onboardingCompletedAt": "2026-09-01T00:30:00.000Z"
+  },
+  "agent": {
+    "operatorAlias": "agent-example",
+    "agentId": "agt_01890f3e-9b43-7cc2-88c5-7f6a1b2c3d4e",
+    "implementationEvidenceUrl": "https://evidence.example.com/agent/integration",
+    "trafficAttestationUrl": "https://evidence.example.com/agent/traffic",
+    "onboardingStartedAt": "2026-09-01T01:00:00.000Z",
+    "onboardingCompletedAt": "2026-09-01T01:25:00.000Z"
+  },
+  "failures": [
+    {
+      "occurredAt": "2026-09-01T00:10:00.000Z",
+      "resolvedAt": "2026-09-01T00:15:00.000Z",
+      "actor": "merchant",
+      "phase": "quote-signing",
+      "code": "DOC_KEY_FORMAT_UNCLEAR",
+      "source": "documentation",
+      "actionEvidenceUrl": "https://evidence.example.com/actions/1"
+    }
+  ],
+  "commercialIntent": {
+    "status": "pending",
+    "evidenceUrl": null,
+    "recordedAt": null
+  }
+}
