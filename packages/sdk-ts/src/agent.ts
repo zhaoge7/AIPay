@@ -51,6 +51,7 @@ export interface PaymentAttempt {
   readonly reservationId: ResourceId<'rsv'> | null;
   readonly provider: string;
   readonly providerReference: string | null;
+  readonly actionRequired: boolean;
   readonly status: 'pending' | 'succeeded' | 'failed' | 'unknown';
   readonly errorCode: string | null;
   readonly action: Readonly<{ type: 'redirect'; method: 'GET'; url: string }> | null;

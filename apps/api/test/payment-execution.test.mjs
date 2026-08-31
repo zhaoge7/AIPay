@@ -276,13 +276,23 @@ test('records every Provider create/retry/query call and its result', async (con
 
   const attempts = await database
     .selectFrom('paymentAttempts')
-    .select(['transactionId', 'status', 'providerReference', 'providerTransactionId'])
+    .select([
+      'transactionId',
+      'status',
+      'providerReference',
+      'providerTransactionId',
+      'actionRequired',
+    ])
     .orderBy('createdAt', 'asc')
     .execute();
   assert.equal(attempts.length, 4);
   assert.deepEqual(
     attempts.map(({ status }) => status),
     ['succeeded', 'failed', 'succeeded', 'succeeded'],
+  );
+  assert.deepEqual(
+    attempts.map(({ actionRequired }) => actionRequired),
+    [false, false, false, true],
   );
 
   const calls = await database

@@ -156,6 +156,7 @@ export async function buildPilotReport(
               'reservationId',
               'provider',
               'providerReference',
+              'actionRequired',
               'status',
             ])
             .where('transactionId', 'in', transactionIds)
@@ -242,6 +243,8 @@ export async function buildPilotReport(
   let excludedCallCount = 0;
   let unclassifiedTransactionCount = 0;
   let manualConfirmationCount = 0;
+  let providerActionRequiredCount = 0;
+  let humanActionRequiredCount = 0;
 
   for (const transaction of transactions) {
     const transactionId = `txn_${transaction.id}` as ResourceId<'txn'>;
@@ -285,6 +288,14 @@ export async function buildPilotReport(
     if (attested) {
       attestedTransactionCount += 1;
       if (transaction.confirmationRequired) manualConfirmationCount += 1;
+      const providerActionRequired = transactionAttempts.some(
+        ({ actionRequired }) => actionRequired,
+      );
+
+      if (providerActionRequired) providerActionRequiredCount += 1;
+      if (transaction.confirmationRequired || providerActionRequired) {
+        humanActionRequiredCount += 1;
+      }
       const occurredAt = Date.parse(trafficEntry.occurredAt);
       const acceptedAt = Date.parse(trafficEntry.acceptedAt);
 
@@ -390,6 +401,7 @@ export async function buildPilotReport(
   const scopedTransactionCount = transactions.length;
   const acceptedCallCount = acceptedTransactionIds.length;
   const preauthorizedTransactionCount = attestedTransactionCount - manualConfirmationCount;
+  const autonomousTransactionCount = attestedTransactionCount - humanActionRequiredCount;
   const auditCompletenessPercent = percentage(auditCompleteCount, attestedTransactionCount);
   const commercialIntentConfirmed = manifest.commercialIntent.status !== 'pending';
   const gateMvpDatabaseEligible =
@@ -452,6 +464,10 @@ export async function buildPilotReport(
       manualConfirmationCount,
       preauthorizedTransactionCount,
       preauthorizedPercent: percentage(preauthorizedTransactionCount, attestedTransactionCount),
+      providerActionRequiredCount,
+      humanActionRequiredCount,
+      autonomousTransactionCount,
+      autonomousPercent: percentage(autonomousTransactionCount, attestedTransactionCount),
       acceptedCallCount,
       excludedCallCount,
       unclassifiedTransactionCount,

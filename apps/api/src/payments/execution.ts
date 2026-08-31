@@ -41,6 +41,7 @@ export interface PaymentAttemptView {
   readonly provider: string;
   readonly providerReference: string | null;
   readonly providerTransactionId: string | null;
+  readonly actionRequired: boolean;
   readonly amount: Readonly<{ currency: 'CNY'; amountMinor: string }>;
   readonly status: ProviderPaymentStatus;
   readonly errorCode: string | null;
@@ -75,6 +76,7 @@ function toAttemptView(
     readonly provider: string;
     readonly providerReference: string | null;
     readonly providerTransactionId: string | null;
+    readonly actionRequired: boolean;
     readonly currency: 'CNY';
     readonly amountMinor: string;
     readonly status: ProviderPaymentStatus;
@@ -93,6 +95,7 @@ function toAttemptView(
     provider: row.provider,
     providerReference: row.providerReference,
     providerTransactionId: row.providerTransactionId,
+    actionRequired: row.actionRequired,
     amount: createMoney(row.currency, row.amountMinor),
     status: row.status,
     errorCode: row.errorCode,
@@ -110,6 +113,7 @@ const attemptColumns = [
   'provider',
   'providerReference',
   'providerTransactionId',
+  'actionRequired',
   'currency',
   'amountMinor',
   'status',
@@ -177,6 +181,7 @@ export class PaymentExecutionService {
           provider: provider.name,
           providerReference: null,
           providerTransactionId: null,
+          actionRequired: false,
           amountMinor: paymentTransaction.amountMinor,
           status: 'pending',
           errorCode: null,
@@ -410,6 +415,7 @@ export class PaymentExecutionService {
             .set({
               providerReference: result.providerPaymentId,
               providerTransactionId: result.providerTransactionId,
+              actionRequired: previousAttempt.actionRequired || result.action !== null,
               status: result.status,
               errorCode: attemptErrorCode,
               updatedAt: completedAt,

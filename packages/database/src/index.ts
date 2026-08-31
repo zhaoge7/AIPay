@@ -201,6 +201,7 @@ export interface PaymentAttemptTable {
   provider: string;
   providerReference: string | null;
   providerTransactionId: Generated<string | null>;
+  actionRequired: Generated<boolean>;
   currency: Generated<'CNY'>;
   amountMinor: string;
   status: 'pending' | 'succeeded' | 'failed' | 'unknown';
