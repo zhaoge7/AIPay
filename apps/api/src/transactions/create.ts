@@ -354,6 +354,7 @@ export class TransactionCreationService {
             merchantId: quote.merchantId,
             serviceId: quote.serviceId,
             amountMinor: amount.amountMinor,
+            confirmationRequired: approval.requiresConfirmation,
             status: approval.requiresConfirmation ? 'requires_confirmation' : 'authorized',
           })
           .returning(transactionColumns)

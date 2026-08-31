@@ -306,6 +306,9 @@ test('counts only bound non-Fake paid deliveries and exposes Gate MVP invariants
   assert.deepEqual(report.metrics, {
     scopedTransactionCount: 1,
     attestedTransactionCount: 1,
+    manualConfirmationCount: 0,
+    preauthorizedTransactionCount: 1,
+    preauthorizedPercent: 100,
     acceptedCallCount: 1,
     excludedCallCount: 0,
     unclassifiedTransactionCount: 0,

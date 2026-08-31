@@ -112,7 +112,15 @@ export async function buildPilotReport(
 
   const transactions = await database
     .selectFrom('transactions')
-    .select(['id', 'mandateId', 'agentId', 'status', 'amountMinor', 'createdAt'])
+    .select([
+      'id',
+      'mandateId',
+      'agentId',
+      'status',
+      'amountMinor',
+      'confirmationRequired',
+      'createdAt',
+    ])
     .where('agentId', '=', agentId)
     .where('merchantId', '=', merchantId)
     .where('serviceId', '=', serviceId)
@@ -233,6 +241,7 @@ export async function buildPilotReport(
   let attestedTransactionCount = 0;
   let excludedCallCount = 0;
   let unclassifiedTransactionCount = 0;
+  let manualConfirmationCount = 0;
 
   for (const transaction of transactions) {
     const transactionId = `txn_${transaction.id}` as ResourceId<'txn'>;
@@ -275,6 +284,7 @@ export async function buildPilotReport(
 
     if (attested) {
       attestedTransactionCount += 1;
+      if (transaction.confirmationRequired) manualConfirmationCount += 1;
       const occurredAt = Date.parse(trafficEntry.occurredAt);
       const acceptedAt = Date.parse(trafficEntry.acceptedAt);
 
@@ -379,6 +389,7 @@ export async function buildPilotReport(
 
   const scopedTransactionCount = transactions.length;
   const acceptedCallCount = acceptedTransactionIds.length;
+  const preauthorizedTransactionCount = attestedTransactionCount - manualConfirmationCount;
   const auditCompletenessPercent = percentage(auditCompleteCount, attestedTransactionCount);
   const commercialIntentConfirmed = manifest.commercialIntent.status !== 'pending';
   const gateMvpDatabaseEligible =
@@ -438,6 +449,9 @@ export async function buildPilotReport(
     metrics: Object.freeze({
       scopedTransactionCount,
       attestedTransactionCount,
+      manualConfirmationCount,
+      preauthorizedTransactionCount,
+      preauthorizedPercent: percentage(preauthorizedTransactionCount, attestedTransactionCount),
       acceptedCallCount,
       excludedCallCount,
       unclassifiedTransactionCount,

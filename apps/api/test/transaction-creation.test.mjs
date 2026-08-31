@@ -272,12 +272,22 @@ test('creates Transactions only from matching active Quote and Mandate reference
 
   const rows = await database
     .selectFrom('transactions')
-    .select(['quoteId', 'mandateId', 'status'])
+    .select(['quoteId', 'mandateId', 'confirmationRequired', 'status'])
     .orderBy('createdAt', 'asc')
     .execute();
   assert.deepEqual(rows, [
-    { quoteId: quote200.id, mandateId: mandate.id, status: 'authorized' },
-    { quoteId: quote600.id, mandateId: mandate.id, status: 'requires_confirmation' },
+    {
+      quoteId: quote200.id,
+      mandateId: mandate.id,
+      confirmationRequired: false,
+      status: 'authorized',
+    },
+    {
+      quoteId: quote600.id,
+      mandateId: mandate.id,
+      confirmationRequired: true,
+      status: 'requires_confirmation',
+    },
   ]);
   const attempts = await database
     .selectFrom('paymentAttempts')

@@ -173,6 +173,7 @@ export interface TransactionTable {
   serviceId: string;
   currency: Generated<'CNY'>;
   amountMinor: string;
+  confirmationRequired: Generated<boolean>;
   status:
     | 'requires_confirmation'
     | 'authorized'

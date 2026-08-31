@@ -154,6 +154,16 @@ test('creates pending transactions above threshold without executing payment', a
   );
   assert.equal(pending.status, 'requires_confirmation');
   assert.equal(pending.amount.amountMinor, '600');
+  assert.equal(
+    (
+      await database
+        .selectFrom('transactions')
+        .select('confirmationRequired')
+        .where('id', '=', pending.transactionId.slice(4))
+        .executeTakeFirstOrThrow()
+    ).confirmationRequired,
+    true,
+  );
 
   const attemptsBefore = await database
     .selectFrom('paymentAttempts')

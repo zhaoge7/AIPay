@@ -348,6 +348,7 @@ export class ManualApprovalService {
             merchantId: quote.merchantId,
             serviceId: quote.serviceId,
             amountMinor: amount.amountMinor,
+            confirmationRequired: true,
             status: 'requires_confirmation',
           })
           .returning(transactionColumns)

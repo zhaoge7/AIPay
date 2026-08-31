@@ -67,7 +67,7 @@ Generate a new non-overwriting `0600` report from the deployed database and both
 pnpm run pilot:report -- pilot/manifest.json pilot/traffic.json pilot/reports/report.json
 ```
 
-The command validates the Manifest and traffic ledger, verifies catalog/scope/classification, and calculates accepted/excluded/unclassified calls, missing ledger transactions, payment and delivery rates, Fake Provider exclusions, missing reservations, multiple successful attempts, Provider call-ledger completeness, Proof/Receipt bindings, Outbox timeline completeness, onboarding duration, failure groups, and Gate MVP database eligibility. It prints only file/hash metadata; review the private report and external evidence together.
+The command validates the Manifest and traffic ledger, verifies catalog/scope/classification, and calculates accepted/excluded/unclassified calls, missing ledger transactions, payment and delivery rates, preauthorized/manual-confirmation share, Fake Provider exclusions, missing reservations, multiple successful attempts, Provider call-ledger completeness, Proof/Receipt bindings, Outbox timeline completeness, onboarding duration, failure groups, and Gate MVP database eligibility. It prints only file/hash metadata; review the private report and external evidence together. Start the real pilot only after migration `1787788830000`; older terminal Transactions are not guessed as previously confirmed.
 
 ## Acceptance Rules
 
