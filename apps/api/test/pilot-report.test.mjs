@@ -3,7 +3,7 @@ import { Buffer } from 'node:buffer';
 import process from 'node:process';
 import test from 'node:test';
 
-import { parsePilotManifest } from '@aipay/contracts';
+import { parsePilotManifest, parsePilotTrafficLedger } from '@aipay/contracts';
 import { createDatabase } from '@aipay/database';
 import { v7 as uuidv7 } from 'uuid';
 
@@ -278,11 +278,39 @@ test('counts only bound non-Fake paid deliveries and exposes Gate MVP invariants
     failures: [],
     commercialIntent: { status: 'pending', evidenceUrl: null, recordedAt: null },
   });
-  const report = await buildPilotReport(database, manifest, 'a'.repeat(64), now);
+  const trafficLedger = parsePilotTrafficLedger({
+    schemaVersion: '1',
+    pilotId: manifest.pilotId,
+    generatedAt: now.toISOString(),
+    attestationEvidenceUrl: 'https://evidence.example.com/agent/traffic-ledger',
+    entries: [
+      {
+        transactionId: `txn_${transaction.id}`,
+        workloadIdHash: `sha256:${'a'.repeat(64)}`,
+        occurredAt: new Date(now.getTime() - 5_000).toISOString(),
+        acceptedAt: now.toISOString(),
+        purposeCode: 'weather.lookup',
+      },
+    ],
+    exclusions: [],
+  });
+  const report = await buildPilotReport(
+    database,
+    manifest,
+    trafficLedger,
+    'a'.repeat(64),
+    'b'.repeat(64),
+    now,
+  );
 
   assert.deepEqual(report.metrics, {
     scopedTransactionCount: 1,
+    attestedTransactionCount: 1,
     acceptedCallCount: 1,
+    excludedCallCount: 0,
+    unclassifiedTransactionCount: 0,
+    ledgerMissingTransactionCount: 0,
+    exclusionMissingTransactionCount: 0,
     rejectedCallCount: 0,
     successfulPaymentCount: 1,
     successfulDeliveryCount: 1,
@@ -300,6 +328,7 @@ test('counts only bound non-Fake paid deliveries and exposes Gate MVP invariants
   assert.equal(report.automatedChecks.oneThousandAcceptedCalls, false);
   assert.equal(report.automatedChecks.commercialIntentConfirmed, false);
   assert.equal(report.automatedChecks.gateMvpDatabaseEligible, false);
+  assert.equal(report.automatedChecks.externalTrafficFullyClassified, true);
   assert.deepEqual(report.acceptedTransactionIds, [`txn_${transaction.id}`]);
 
   await database
@@ -307,7 +336,14 @@ test('counts only bound non-Fake paid deliveries and exposes Gate MVP invariants
     .set({ provider: 'fake' })
     .where('id', '=', attempt.id)
     .executeTakeFirstOrThrow();
-  const fakeReport = await buildPilotReport(database, manifest, 'b'.repeat(64), now);
+  const fakeReport = await buildPilotReport(
+    database,
+    manifest,
+    trafficLedger,
+    'c'.repeat(64),
+    'd'.repeat(64),
+    now,
+  );
   assert.equal(fakeReport.metrics.acceptedCallCount, 0);
   assert.equal(fakeReport.metrics.fakeProviderCount, 1);
   assert.deepEqual(fakeReport.rejectedTransactions[0]?.reasons, ['fake_provider']);
@@ -322,10 +358,34 @@ test('counts only bound non-Fake paid deliveries and exposes Gate MVP invariants
     .set({ amountMinor: '2' })
     .where('id', '=', reservation.id)
     .executeTakeFirstOrThrow();
-  const misboundReport = await buildPilotReport(database, manifest, 'c'.repeat(64), now);
+  const misboundReport = await buildPilotReport(
+    database,
+    manifest,
+    trafficLedger,
+    'e'.repeat(64),
+    'f'.repeat(64),
+    now,
+  );
   assert.equal(misboundReport.metrics.acceptedCallCount, 0);
   assert.equal(misboundReport.metrics.unauthorizedPaymentCount, 1);
   assert.deepEqual(misboundReport.rejectedTransactions[0]?.reasons, [
     'missing_or_misbound_budget_reservation',
   ]);
+
+  const unclassified = parsePilotTrafficLedger({
+    ...trafficLedger,
+    entries: [],
+  });
+  const unclassifiedReport = await buildPilotReport(
+    database,
+    manifest,
+    unclassified,
+    '1'.repeat(64),
+    '2'.repeat(64),
+    now,
+  );
+  assert.equal(unclassifiedReport.metrics.acceptedCallCount, 0);
+  assert.equal(unclassifiedReport.metrics.unclassifiedTransactionCount, 1);
+  assert.equal(unclassifiedReport.automatedChecks.externalTrafficFullyClassified, false);
+  assert.ok(unclassifiedReport.rejectedTransactions[0]?.reasons.includes('unclassified_traffic'));
 });

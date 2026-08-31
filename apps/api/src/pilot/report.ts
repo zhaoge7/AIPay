@@ -2,6 +2,7 @@ import {
   getResourceUuid,
   parseResourceId,
   type PilotManifest,
+  type PilotTrafficLedger,
   type ResourceId,
 } from '@aipay/contracts';
 import type { Database } from '@aipay/database';
@@ -10,7 +11,7 @@ const paidEvent = 'transaction.paid';
 const deliveredEvent = 'transaction.delivered';
 
 export class PilotReportError extends Error {
-  readonly code: 'scope_not_found' | 'catalog_mismatch';
+  readonly code: 'scope_not_found' | 'catalog_mismatch' | 'traffic_scope_mismatch';
 
   constructor(code: PilotReportError['code']) {
     super(`Pilot report failed: ${code}`);
@@ -62,9 +63,14 @@ function summarizeFailures(manifest: PilotManifest) {
 export async function buildPilotReport(
   database: Database,
   manifest: PilotManifest,
+  trafficLedger: PilotTrafficLedger,
   manifestSha256: string,
+  trafficSha256: string,
   generatedAt = new Date(),
 ) {
+  if (trafficLedger.pilotId !== manifest.pilotId) {
+    throw new PilotReportError('traffic_scope_mismatch');
+  }
   const merchantId = getResourceUuid(parseResourceId(manifest.merchant.merchantId, 'mch'));
   const serviceId = getResourceUuid(parseResourceId(manifest.merchant.serviceId, 'svc'));
   const agentId = getResourceUuid(parseResourceId(manifest.agent.agentId, 'agt'));
@@ -116,6 +122,19 @@ export async function buildPilotReport(
     .orderBy('id', 'asc')
     .execute();
   const transactionIds = transactions.map(({ id }) => id);
+  const scopedWireIds = new Set(transactions.map(({ id }) => `txn_${id}`));
+  const acceptedTrafficById = new Map(
+    trafficLedger.entries.map((entry) => [entry.transactionId, entry]),
+  );
+  const excludedTrafficById = new Map(
+    trafficLedger.exclusions.map((entry) => [entry.transactionId, entry]),
+  );
+  const ledgerMissingTransactionCount = trafficLedger.entries.filter(
+    ({ transactionId }) => !scopedWireIds.has(transactionId),
+  ).length;
+  const exclusionMissingTransactionCount = trafficLedger.exclusions.filter(
+    ({ transactionId }) => !scopedWireIds.has(transactionId),
+  ).length;
 
   const [attempts, proofs, deliveries, outbox] =
     transactionIds.length === 0
@@ -145,6 +164,7 @@ export async function buildPilotReport(
               'paymentProofId',
               'status',
               'resultDigest',
+              'deliveredAt',
               'proofScheme',
               'proofKeyId',
               'proofValue',
@@ -210,8 +230,15 @@ export async function buildPilotReport(
   let fakeProviderCount = 0;
   let auditCompleteCount = 0;
   let acceptedAmountMinor = 0n;
+  let attestedTransactionCount = 0;
+  let excludedCallCount = 0;
+  let unclassifiedTransactionCount = 0;
 
   for (const transaction of transactions) {
+    const transactionId = `txn_${transaction.id}` as ResourceId<'txn'>;
+    const trafficEntry = acceptedTrafficById.get(transactionId);
+    const exclusion = excludedTrafficById.get(transactionId);
+    const attested = trafficEntry !== undefined;
     const transactionAttempts = attemptsByTransaction.get(transaction.id) ?? [];
     const successfulAttempts = transactionAttempts.filter(({ status }) => status === 'succeeded');
     const transactionProofs = proofsByTransaction.get(transaction.id) ?? [];
@@ -246,11 +273,38 @@ export async function buildPilotReport(
       ({ eventType }) => eventType === deliveredEvent,
     );
 
-    if (successfulAttempts.length > 0) {
+    if (attested) {
+      attestedTransactionCount += 1;
+      const occurredAt = Date.parse(trafficEntry.occurredAt);
+      const acceptedAt = Date.parse(trafficEntry.acceptedAt);
+
+      if (
+        occurredAt < Date.parse(manifest.window.startedAt) ||
+        occurredAt >= Date.parse(manifest.window.endedAt) ||
+        occurredAt > transaction.createdAt.getTime()
+      ) {
+        reasons.add('invalid_workload_timestamp');
+      }
+      if (
+        delivery?.deliveredAt !== undefined &&
+        delivery.deliveredAt !== null &&
+        acceptedAt < delivery.deliveredAt.getTime()
+      ) {
+        reasons.add('acceptance_precedes_delivery');
+      }
+    } else if (exclusion !== undefined) {
+      excludedCallCount += 1;
+      reasons.add(`traffic_excluded_${exclusion.reason}`);
+    } else {
+      unclassifiedTransactionCount += 1;
+      reasons.add('unclassified_traffic');
+    }
+
+    if (attested && successfulAttempts.length > 0) {
       successfulPaymentCount += 1;
     }
 
-    if (transactionDeliveries.some(({ status }) => status === 'succeeded')) {
+    if (attested && transactionDeliveries.some(({ status }) => status === 'succeeded')) {
       successfulDeliveryCount += 1;
     }
 
@@ -309,13 +363,11 @@ export async function buildPilotReport(
       hasPaidEvent &&
       hasDeliveredEvent;
 
-    if (auditComplete) {
+    if (attested && auditComplete) {
       auditCompleteCount += 1;
     }
 
-    const transactionId = `txn_${transaction.id}` as ResourceId<'txn'>;
-
-    if (reasons.size === 0) {
+    if (attested && reasons.size === 0) {
       acceptedTransactionIds.push(transactionId);
       acceptedAmountMinor += BigInt(transaction.amountMinor);
     } else {
@@ -327,19 +379,23 @@ export async function buildPilotReport(
 
   const scopedTransactionCount = transactions.length;
   const acceptedCallCount = acceptedTransactionIds.length;
-  const auditCompletenessPercent = percentage(auditCompleteCount, scopedTransactionCount);
+  const auditCompletenessPercent = percentage(auditCompleteCount, attestedTransactionCount);
   const commercialIntentConfirmed = manifest.commercialIntent.status !== 'pending';
   const gateMvpDatabaseEligible =
     acceptedCallCount >= 1 &&
     unauthorizedPaymentCount === 0 &&
     duplicateChargeCount === 0 &&
     auditCompletenessPercent === 100 &&
+    unclassifiedTransactionCount === 0 &&
+    ledgerMissingTransactionCount === 0 &&
+    exclusionMissingTransactionCount === 0 &&
     commercialIntentConfirmed;
 
   return Object.freeze({
     schemaVersion: '1',
     pilotId: manifest.pilotId,
     manifestSha256,
+    trafficSha256,
     generatedAt: generatedAt.toISOString(),
     scope: Object.freeze({
       ...manifest.window,
@@ -359,6 +415,12 @@ export async function buildPilotReport(
         amountMinor: catalog.unitPriceAmountMinor,
       }),
     }),
+    traffic: Object.freeze({
+      generatedAt: trafficLedger.generatedAt,
+      attestationEvidenceUrl: trafficLedger.attestationEvidenceUrl,
+      ledgerEntryCount: trafficLedger.entries.length,
+      ledgerExclusionCount: trafficLedger.exclusions.length,
+    }),
     onboarding: Object.freeze({
       merchantMinutes: durationMinutes(
         manifest.merchant.onboardingStartedAt,
@@ -375,7 +437,12 @@ export async function buildPilotReport(
     }),
     metrics: Object.freeze({
       scopedTransactionCount,
+      attestedTransactionCount,
       acceptedCallCount,
+      excludedCallCount,
+      unclassifiedTransactionCount,
+      ledgerMissingTransactionCount,
+      exclusionMissingTransactionCount,
       rejectedCallCount: rejectedTransactions.length,
       successfulPaymentCount,
       successfulDeliveryCount,
@@ -384,16 +451,20 @@ export async function buildPilotReport(
       fakeProviderCount,
       auditCompleteCount,
       auditCompletenessPercent,
-      paymentSuccessPercent: percentage(successfulPaymentCount, scopedTransactionCount),
-      deliverySuccessPercent: percentage(successfulDeliveryCount, scopedTransactionCount),
+      paymentSuccessPercent: percentage(successfulPaymentCount, attestedTransactionCount),
+      deliverySuccessPercent: percentage(successfulDeliveryCount, attestedTransactionCount),
       acceptedAmountMinor: acceptedAmountMinor.toString(),
       currency: 'CNY',
     }),
     automatedChecks: Object.freeze({
       partnerCatalogMatched: true,
-      externalAgentExists: true,
+      agentExistsInDatabase: true,
       firstEndToEndTransaction: acceptedCallCount >= 1,
       oneThousandAcceptedCalls: acceptedCallCount >= 1_000,
+      externalTrafficFullyClassified:
+        unclassifiedTransactionCount === 0 &&
+        ledgerMissingTransactionCount === 0 &&
+        exclusionMissingTransactionCount === 0,
       developerExperienceMeasured: true,
       commercialIntentConfirmed,
       gateMvpDatabaseEligible,

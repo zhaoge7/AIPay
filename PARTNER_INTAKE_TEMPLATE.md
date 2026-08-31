@@ -39,6 +39,8 @@ This document records pilot scope and intent. It is not a payment instruction, p
 - Mandate merchant/category/amount/count/validity limits:
 - Expected legitimate calls:
 - Useful-call evidence and traffic attestation method:
+- Pilot-specific workload-hash salt custody (do not include the salt here):
+- Transaction-to-workload ledger evidence URL/hash:
 - Development/synthetic/loop/replay/load-test exclusion method:
 
 ## Acceptance

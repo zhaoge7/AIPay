@@ -167,3 +167,12 @@ export {
   parsePilotManifest,
   type PilotManifest,
 } from './pilot-manifest.js';
+
+export {
+  PilotTrafficLedgerSchema,
+  PilotTrafficValidationError,
+  parsePilotTrafficLedger,
+  pilotTrafficExclusionReasons,
+  type PilotTrafficExclusionReason,
+  type PilotTrafficLedger,
+} from './pilot-traffic.js';

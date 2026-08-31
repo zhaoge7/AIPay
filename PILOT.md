@@ -59,13 +59,15 @@ Evidence URLs may point to an access-controlled repository, ticket, signed docum
 
 The manifest fixes the accepted merchant, service, Agent, pilot window, external implementation evidence, capability and price evidence, traffic attestation, recorded integration failures, and commercial-intent status. Changing scope creates a reviewed new manifest version rather than silently widening the count.
 
-Generate a new non-overwriting `0600` report from the deployed database:
+Create private `pilot/traffic.json` from `pilot/traffic.example.json`. Every accepted entry binds one AIPay Transaction to one unique external workload hash and records when the partner accepted the useful result. Compute the hash from a pilot-specific random salt plus the partner's stable business/work item ID; keep the salt and original ID in the partner evidence system, never in Git. Every scoped development, synthetic, loop, replay, load-test or failed-workflow Transaction must appear in `exclusions` with its evidence URL. Anything in neither list remains unclassified and blocks Gate eligibility.
+
+Generate a new non-overwriting `0600` report from the deployed database and both private evidence inputs:
 
 ```bash
-pnpm run pilot:report -- pilot/manifest.json pilot/reports/report.json
+pnpm run pilot:report -- pilot/manifest.json pilot/traffic.json pilot/reports/report.json
 ```
 
-The command validates the Manifest, verifies its catalog scope, and calculates accepted/rejected calls, payment and delivery rates, Fake Provider exclusions, missing reservations, multiple successful attempts, Provider call-ledger completeness, Proof/Receipt bindings, Outbox timeline completeness, onboarding duration, failure groups, and Gate MVP database eligibility. It prints only file/hash metadata; review the private report and external evidence together.
+The command validates the Manifest and traffic ledger, verifies catalog/scope/classification, and calculates accepted/excluded/unclassified calls, missing ledger transactions, payment and delivery rates, Fake Provider exclusions, missing reservations, multiple successful attempts, Provider call-ledger completeness, Proof/Receipt bindings, Outbox timeline completeness, onboarding duration, failure groups, and Gate MVP database eligibility. It prints only file/hash metadata; review the private report and external evidence together.
 
 ## Acceptance Rules
 
@@ -74,7 +76,7 @@ The command validates the Manifest, verifies its catalog scope, and calculates a
 | P11-01         | Merchant/service exist in the closed-test database; external capability and implementation evidence are reachable; unit and positive CNY price match the catalog                                                                                     |
 | P11-02         | Agent exists in the database; external implementation evidence identifies a repository or deployed artifact outside AIPay; private key remains partner-controlled                                                                                    |
 | P11-03         | One in-window Transaction binds the admitted Agent/merchant/service and has a successful non-Fake Payment Attempt, Payment Proof, successful signed Delivery Receipt, paid/delivered Outbox evidence, and complete timeline                          |
-| P11-04         | At least 1,000 accepted in-window Transactions satisfy P11-03; the external operator attests they came from useful workload; development, synthetic, automated-loop, replay, and load-test traffic are excluded                                      |
+| P11-04         | At least 1,000 accepted in-window Transactions satisfy P11-03 and have unique salted external workload hashes plus useful-result acceptance; every scoped non-production call is explicitly evidenced/excluded and none is unclassified              |
 | P11-05         | Merchant and Agent onboarding duration plus every recorded failure are aggregated into the generated developer-experience report                                                                                                                     |
 | P11-06         | At least one partner has a signed paid-intent evidence reference or AIPay has evidence of the first software service fee; a sandbox service purchase alone is insufficient                                                                           |
 | P11-07         | The review uses measured conversion, integration time, failure mix, accepted calls, payment/delivery success, incidents, unauthorized/duplicate payment, audit completeness, and commercial intent to choose orchestration or metering/billing focus |

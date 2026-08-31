@@ -46,4 +46,5 @@ Thumbs.db
 # Private design-partner evidence
 /pilot/*.json
 !/pilot/manifest.example.json
+!/pilot/traffic.example.json
 /pilot/reports/
