@@ -1,6 +1,24 @@
 # AIPay
 
-AIPay 是面向 AI Agent 的支付编排与信任层。本仓库当前处于工程骨架阶段，已包含 monorepo、严格类型检查、运行配置校验、测试和基础 CI；HTTP API、管理端页面和后台任务循环将在后续阶段实现。
+AIPay 是面向 AI Agent 的人民币支付编排与信任层。它把 Agent 身份、结构化 Mandate、固定报价、幂等交易、支付通道、Payment Proof、可验证交付和审计时间线组合成一个可暂停、可恢复的闭环。
+
+当前仓库已经实现 HTTP API、React 管理控制台、异步 Worker、PostgreSQL 状态机、支付宝网页支付与 AI 按量付费沙箱、Agent/Merchant TypeScript SDK、HTTP 402/MCP 示例、安全/故障/备份/监控门禁，以及 P11 设计伙伴的自托管 Agent bridge、Merchant adapter、逐笔流量证据和 MVP 复盘工具。
+
+## 当前状态
+
+- P8-P10 工程和 Gate 已完成；本机闭测环境运行于 `https://aipay.localhost:8443`。
+- 私有伙伴工件版本为 `0.2.0`，包含 Contracts、SDK、Agent MCP bridge 和 Merchant HTTP adapter。
+- P11 的真实伙伴交易仍必须由仓库外 Merchant/Agent、公网 HTTPS 环境、非 Fake 支付、真实工作负载和签署商业证据完成；内部示例、循环或测试流量不计入。
+- 0.2.0 正式本地工件位于 `.local-state/partner-kit-0.2.0`，以 `KIT.json` 中的 clean Git revision 和 `SHA256SUMS` 为准。
+
+核心入口：
+
+- [SDK 与独立示例](./packages/sdk-ts/README.md)
+- [闭测部署](./deploy/README.md)
+- [设计伙伴闭测与证据规则](./PILOT.md)
+- [0.2.0 伙伴工件说明](./PARTNER_RELEASE.md)
+- [安全模型](./SECURITY.md)与[事故响应手册](./INCIDENT_RESPONSE.md)
+- [伙伴招募方案](./PARTNER_OUTREACH.md)、[参与/付费意向模板](./PARTNER_INTAKE_TEMPLATE.md)和[MVP 最终复盘模板](./MVP_REVIEW_TEMPLATE.md)
 
 ## 环境要求
 
@@ -46,14 +64,43 @@ pnpm run db:reset
 pnpm run db:down
 ```
 
-构建全部 workspace，然后启动 API：
+首次运行先生成本地 issuer/备份/metrics 配置：
+
+```bash
+pnpm --filter @aipay/api prepare:env
+```
+
+不涉及真实资金的 SDK 快速沙箱使用 Fake Provider。先构建并启动 API：
 
 ```bash
 pnpm run build
-node --env-file=.env apps/api/dist/index.js
+pnpm --filter @aipay/api sdk:sandbox
 ```
 
-API 默认监听 `.env` 中的地址，并提供开发者注册和登录：
+终端 B 创建一天有效、权限受限且 Git 忽略的快速开始身份，然后启动独立 HTTP Merchant 示例：
+
+```bash
+pnpm run quickstart:setup
+node --env-file=examples/.env.quickstart examples/paid-http-api/dist/index.js
+```
+
+终端 C 运行 HTTP Agent 客户端；随后可停止 HTTP Merchant，并运行会自行拉起 stdio Server 的 MCP Agent 客户端：
+
+```bash
+node --env-file=examples/.env.quickstart examples/paid-http-api/dist/client.js
+node --env-file=examples/.env.quickstart examples/paid-mcp-tool/dist/client.js
+```
+
+完整 HTTPS 控制台和 Worker 环境要求受保护的支付宝沙箱配置、Caddy 与 user systemd，按[闭测部署文档](./deploy/README.md)执行：
+
+```bash
+pnpm run deploy:local
+pnpm run deploy:smoke
+```
+
+成功后访问 `https://aipay.localhost:8443`。Caddy internal CA 不会自动写入系统信任库。
+
+开发 API 默认监听 `.env` 中的地址，并提供开发者注册和登录：
 
 ```bash
 curl -i http://127.0.0.1:3000/v1/auth/register \
@@ -65,7 +112,7 @@ curl -i http://127.0.0.1:3000/v1/auth/login \
   --data '{"email":"developer@example.com","password":"replace-with-a-long-local-password"}'
 ```
 
-成功响应通过 `Set-Cookie` 返回 HttpOnly、SameSite=Lax 会话 Cookie。生产环境自动增加 Secure；数据库只保存 Argon2id 密码哈希和会话 Token 的 SHA-256 摘要。Worker 当前入口仍只校验配置，管理端尚无开发服务器。
+成功响应通过 `Set-Cookie` 返回 HttpOnly、SameSite=Lax 会话 Cookie。HTTPS 环境同时增加 Secure；数据库只保存 Argon2id 密码哈希和会话 Token 的 SHA-256 摘要。控制台源码位于 `apps/web`，本地 Vite 入口为 `pnpm --filter @aipay/web dev`。
 
 登录后可通过会话 Cookie 管理 API Key：
 
@@ -126,6 +173,8 @@ Reservation 终结固定为 released（payment_failed/cancelled）、expired（t
 
 每次 Payment Provider create/retry/query 都先写 `pcl_` started 账本，再在网络调用后记录 Provider status/reference、稳定错误和耗时；PaymentAttempt 只汇总当前状态。残留 started 代表可能的崩溃中调用，必须查询恢复，不能覆盖或静默删除。
 
+Transaction 在创建时持久化不可变 `confirmation_required`，PaymentAttempt 在 Provider 曾返回 redirect/action 后单调持久化 `action_required`。后续状态或主动查询不会清除这两个事实；P11 报告据此区分 AIPay 人工批准、Provider 人工动作和 fully autonomous 调用，而不是从最终状态猜测。
+
 PaymentAttempt 首次进入 succeeded、failed 或 unknown 时，Transaction 状态与 `transaction.paid`、`transaction.failed` 或 `transaction.payment_review` Outbox 事件在同一数据库事务提交；同状态 retry/query 不重复产生事件。Worker 再从 Outbox 投递商户通知，API 不在支付结果事务内执行外部 HTTP。
 
 异步事件必须在业务 `DatabaseTransaction` 内调用 `enqueueOutboxEvent`；Dispatcher 用 `FOR UPDATE SKIP LOCKED` claim processing lease，支持 published、指数退避、dead_letter 和 stale lease 恢复。交付语义为 at-least-once，消费者必须按 `obx_` event ID 幂等。
@@ -152,13 +201,15 @@ V1 退款只允许 `full_on_delivery_failure` 服务对 paid/delivery_review/del
 
 开发者通过 `GET /v1/transactions/:transactionId/timeline` 获取权威只读时间线。投影直接来自 Mandate、Quote、Transaction、PaymentAttempt、每次 Payment/Refund Provider call、Payment Proof、Delivery、Refund、Outbox 和 Reconciliation item，按 occurredAt + eventId 稳定排序；每项只有固定 phase/type/object/time/status/provider/operation/errorCode，不返回 Provider 原文或自由 metadata。Principal owner 与 Merchant owner 可读，其他开发者统一拒绝。
 
-当前沙箱只验证单一自营测试商户。生产多商户模式必须由实际收款商户完成产品签约，并通过服务商应用授权 `app_auth_token` 代调用；AIPay 不使用一个自有商户号代收第三方资金。支付宝 [AI 按量付费](https://aipay.alipay.com/docs/ai-receive/MACHINE_PAY.html) 与 API/MCP/Skill 最匹配，但它属于 402 `Payment-Needed`/`Payment-Proof` 协议，将在 Payment Proof 与 SDK 阶段接入，不替代本阶段的 Provider 适配器。
+当前沙箱只验证单一自营测试商户。生产多商户模式必须由实际收款商户完成产品签约，并通过服务商应用授权 `app_auth_token` 代调用；AIPay 不使用一个自有商户号代收第三方资金。支付宝 [AI 按量付费](https://aipay.alipay.com/docs/ai-receive/MACHINE_PAY.html) 已接入 `GET /v1/a2m/resources/:serviceId`：首次请求返回 402 `Payment-Needed`，携带 `Payment-Proof` 重试后完成验付、履约确认并返回 `Payment-Validation`。A2M 与通用 Agent Transaction/PaymentAttempt Provider 路径并存，不互相冒充。
 
 ## Payment Proof V1
 
 Payment Proof 是最多 15 分钟有效的一次性交付凭证，不替代 Mandate。严格 V1 Contract 绑定 `ppf_`、Transaction、成功 PaymentAttempt、Merchant、Service、精确 CNY Money、issuedAt/expiresAt；AIPay system issuer 对 `AIPAY-PAYMENT-PROOF-V1\0 || JCS(signingPayload)` 做 Ed25519 签名，签名 payload 移除 `proof.value`。Proof 不携带 Provider 原始报文、支付账号或用户身份数据。
 
 所有者通过 `POST /v1/transactions/:transactionId/payment-proof` 对 paid Transaction 幂等取得 Proof；`POST /v1/payment-proofs/verify` 公开验证密码学签名与当前有效期。商户所有者通过 `POST /v1/merchants/:merchantId/payment-proofs/consume` 一次消费：服务端再次锁定并核对 Transaction/Attempt/Merchant/Service/Money/key/signature，原子标 consumed、推进 delivery_pending 并写 `transaction.delivery_started` Outbox。跨商户、跨服务、跨交易、金额替换和重复消费均拒绝；过期消费会持久化 expired。
+
+若 Merchant 在 consume 成功后、保存 `deliveryId` 前崩溃，可调用 `POST /v1/merchants/:merchantId/payment-proofs/recover` 或 SDK `recoverPaymentProofConsumption`。恢复端点只允许同 owner 提交完全相同、签名有效且已 consumed 的 Proof，并只读返回原 Delivery；它不会重新消费 Proof、创建第二个 Delivery 或改变一次性 replay 拒绝语义。
 
 消费 Payment Proof 时服务端在同一事务创建 pending `dlv_`，商户不能自选 Delivery ID。商户对 `AIPAY-DELIVERY-RECEIPT-V1\0 || JCS(payload)` 做 Ed25519 签名并提交严格 Delivery Receipt：绑定 dlv/txn/ppf/mch/svc、succeeded/failed、SHA-256 结果摘要、deliveredAt 和失败码。公开 `/v1/deliveries/verify` 验签；商户 owner 的 receipt 提交再次锁定所有绑定，成功转 delivered，失败转 refund_pending，并与 `transaction.delivered`/`transaction.delivery_failed` Outbox 同事务。完全相同 Receipt 重试幂等，不同终态冲突。
 
@@ -168,38 +219,41 @@ pending Delivery 默认 5 分钟截止，并快照 Proof 消费时的 refundPoli
 
 本地开发从 `.env.example` 创建 `.env`。`.env` 已被 Git 忽略，不要在其中提交真实密钥、Token 或用户数据。
 
-| 变量                                | 用途                                               | 当前示例      |
-| ----------------------------------- | -------------------------------------------------- | ------------- |
-| `NODE_ENV`                          | 运行环境，可选 `development`、`test`、`production` | `development` |
-| `AIPAY_API_HOST`                    | API 绑定地址                                       | `127.0.0.1`   |
-| `AIPAY_API_PORT`                    | API 监听端口                                       | `3000`        |
-| `AIPAY_WORKER_CONCURRENCY`          | Worker 最大并发数，必须为正整数                    | `1`           |
-| `AIPAY_DATABASE_URL`                | PostgreSQL 连接 URL                                | 本地开发 URL  |
-| `AIPAY_MANDATE_SIGNING_KEY_ID`      | Mandate system issuer 的 `key_` UUIDv7             | 本地生成      |
-| `AIPAY_MANDATE_SIGNING_PRIVATE_KEY` | base64 PKCS#8 Ed25519 私钥                         | 本地生成      |
+| 变量                                                                                        | 用途                                                         | 当前示例         |
+| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | ---------------- |
+| `NODE_ENV`                                                                                  | 运行环境，可选 `development`、`test`、`production`           | `development`    |
+| `AIPAY_API_HOST` / `AIPAY_API_PORT`                                                         | API 绑定地址与端口                                           | `127.0.0.1:3000` |
+| `AIPAY_WORKER_CONCURRENCY`                                                                  | Worker 最大并发数，必须为正整数                              | `1`              |
+| `AIPAY_DATABASE_URL`                                                                        | PostgreSQL 连接 URL                                          | 本地开发 URL     |
+| `AIPAY_MANDATE_SIGNING_KEY_ID` / `AIPAY_MANDATE_SIGNING_PRIVATE_KEY`                        | system issuer 的 `key_` UUIDv7 与 base64 PKCS#8 Ed25519 私钥 | 本地生成         |
+| `AIPAY_BACKUP_KEY`                                                                          | AES-256-GCM 数据库备份密钥                                   | 本地生成         |
+| `AIPAY_METRICS_TOKEN`                                                                       | `/internal/metrics` Bearer Token                             | 本地生成         |
+| `AIPAY_DEPLOYMENT_MODE` / `AIPAY_PUBLIC_ORIGIN`                                             | `local` 或获批 `external` 部署及其裸 HTTPS origin            | 本地模式自动设置 |
+| `AIPAY_ALIPAY_MODE` / `AIPAY_ALIPAY_APP_ID` / `AIPAY_ALIPAY_SELLER_ID`                      | 支付宝网页支付模式、应用与收款方                             | 沙箱配置         |
+| `AIPAY_ALIPAY_PRIVATE_KEY` / `AIPAY_ALIPAY_PLATFORM_PUBLIC_KEY` / `AIPAY_ALIPAY_NOTIFY_URL` | RSA2 应用私钥、支付宝公钥与精确回调 URL                      | 沙箱配置         |
 
-配置无效时，程序只报告变量名，不回显变量值。
+配置无效时，程序只报告变量名，不回显变量值。支付宝 AI 按量付费项目配置从权限为 `0600` 且 Git 忽略的 `.alipay-sandbox.json` 加载；不得把其中内容复制到 README、日志或提交记录。Agent bridge 和 Merchant adapter 的独立变量见各自 README。
 
 ## 常用命令
 
-| 命令                             | 作用                                   |
-| -------------------------------- | -------------------------------------- |
-| `pnpm run dev`                   | 并行运行各 workspace 已定义的开发脚本  |
-| `pnpm run build`                 | 构建各 workspace 已定义的构建目标      |
-| `pnpm run typecheck`             | 对全部 TypeScript 项目执行严格类型检查 |
-| `pnpm run lint`                  | 执行 ESLint 检查，禁止警告             |
-| `pnpm run format:check`          | 检查 Prettier 格式                     |
-| `pnpm run check`                 | 依次执行类型、Lint 和格式检查          |
-| `pnpm run test`                  | 执行全部 workspace 测试                |
-| `pnpm run incident:drill`        | 演练止付、隔离、交易恢复和签名通知     |
-| `pnpm run gate:p10`              | 验收安全、恢复、备份、监控和闭测部署   |
-| `pnpm run db:up`                 | 启动固定版本的本地 PostgreSQL          |
-| `pnpm run db:migrate`            | 应用所有待执行迁移                     |
-| `pnpm run db:reset`              | 安全重建开发/测试数据库并重放迁移      |
-| `pnpm run db:down`               | 停止数据库容器并保留开发数据卷         |
-| `pnpm run db:backup -- <新文件>` | 创建 0600 AES-GCM 加密 custom dump     |
+| 命令                                                                                                      | 作用                                                        |
+| --------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `pnpm run build` / `pnpm run check` / `pnpm run test`                                                     | 构建；类型/Lint/格式；全部 workspace 测试                   |
+| `pnpm run security:scan`                                                                                  | Gitleaks Git/文件扫描与 AST/Schema 敏感 sink 审计           |
+| `pnpm run test:faults` / `pnpm run incident:drill`                                                        | 确定性支付/Webhook 故障矩阵；止付/隔离/恢复/通知演练        |
+| `pnpm run monitoring:check` / `pnpm run gate:p10`                                                         | 校验 Prometheus 规则；执行完整 P10 闭测门禁                 |
+| `pnpm run db:up` / `pnpm run db:migrate` / `pnpm run db:down`                                             | 启动数据库、应用 forward-only 迁移、停止并保留数据卷        |
+| `pnpm run db:reset`                                                                                       | 仅重建回环地址且以 `_dev`/`_test` 结尾的数据库              |
+| `pnpm run db:backup <新文件>`                                                                             | 创建不覆盖的 0600 AES-GCM PostgreSQL custom dump            |
+| `pnpm run quickstart:setup`                                                                               | 创建受限、短期且 Git 忽略的 SDK 快速开始身份                |
+| `pnpm run deploy:local` / `pnpm run deploy:smoke`                                                         | 安装并验证本机 Caddy/internal-CA/API/Worker/PostgreSQL      |
+| `AIPAY_PUBLIC_ORIGIN=https://... pnpm run deploy:pilot`                                                   | 在域名/DNS/支付宝配置已获批时部署公共 HTTPS/Alipay Web 模式 |
+| `AIPAY_PUBLIC_ORIGIN=https://... pnpm run deploy:smoke:pilot`                                             | 从公共 origin 验证 Web、Cookie、DB、metrics 和签名 callback |
+| `pnpm run partner-kit:build -- <新目录>` / `pnpm run partner-kit:test`                                    | 生成 0.2.0 私有四包与仓库外 npm 安装验收                    |
+| `pnpm run pilot:report -- pilot/manifest.json pilot/traffic.json pilot/reports/report.json`               | 逐笔核验真实流量、支付、交付、安全与接入指标                |
+| `pnpm run pilot:review -- pilot/reports/report.json pilot/review-evidence.json pilot/reports/review.json` | 按固定门槛生成继续编排或收缩计量/账单的建议                 |
 
-Agent/Merchant SDK、付费 HTTP API 和 MCP Tool 的独立接入见 [SDK 快速开始](./docs/quickstart.md)。
+Agent/Merchant SDK 的角色边界见 [SDK README](./packages/sdk-ts/README.md)；可执行 HTTP/MCP 流程位于 `examples/paid-http-api` 与 `examples/paid-mcp-tool`。
 
 ## 目录结构
 
@@ -208,6 +262,11 @@ apps/
   api/          HTTP API
   web/          管理控制台
   worker/       异步任务处理
+examples/
+  paid-http-api/          独立 HTTP 402 Merchant/Agent 示例
+  paid-mcp-tool/          独立 MCP Merchant/Agent 示例
+  agent-mcp-bridge/       外部 Agent 自托管 Streamable HTTP 支付桥
+  merchant-http-adapter/ 外部 Merchant 自托管固定 JSON GET 适配器
 packages/
   config/       运行配置加载与校验
   database/     PostgreSQL 访问、迁移与本地生命周期
@@ -215,6 +274,9 @@ packages/
   payment/      支付通道抽象
   policy/       确定性授权策略
   sdk-ts/       TypeScript SDK
+deploy/         Caddy、user-systemd、本地/外部闭测安装与 smoke
+ops/            Prometheus 告警规则
+pilot/          可提交示例；真实 Manifest/ledger/report/review 默认忽略
 ```
 
 架构和选型记录按仓库策略仅保存在本地开发清单，不上传 `docs/` 目录。
@@ -227,6 +289,12 @@ packages/
 
 API 或 Worker 抛出 `ConfigurationError` 时，按错误中列出的变量名检查 `.env`；错误不会包含被拒绝的原始值。
 
+浏览器不信任 `aipay.localhost` 时，只把 `.local-state/caddy/data/caddy/pki/authorities/local/root.crt` 导入专用于本机闭测的客户端；不要关闭 TLS 校验，也不要把 internal CA 当作外部伙伴证书。
+
+P11 条目保持未完成并不表示工程测试失败。P11 要求仓库外 Merchant/Agent、公共 HTTPS、非 Fake 支付、逐笔真实 workload ledger 和签署商业证据；`pnpm run test`、内部 adapter 或自动循环不能替代这些事实。具体准入与解除阻塞材料见 [PILOT.md](./PILOT.md)。
+
+架构选型流水保存在本地 `DEVELOPMENT_CHECKLIST.md` 与 `docs/adr`；这两个路径按仓库策略不上传。可提交的长期边界同时体现在根安全/运行文档、独立小条目 Git 提交和 0.2.0 release 说明中。
+
 ## 持续集成
 
-GitHub Actions 会在 push 和 pull request 上使用 Ubuntu 24.04 执行冻结安装、类型检查、Lint、格式检查和测试。工作流只具有仓库内容读取权限，不使用项目密钥。
+GitHub Actions 会在 push 和 pull request 上使用 Ubuntu 24.04 执行冻结安装、类型检查、Lint、格式检查、Gitleaks/敏感 sink 审计、Prometheus 规则校验和全部测试。Gitleaks、Promtool 与 Actions 均固定版本/提交和校验值；工作流只有仓库内容读取权限，不使用项目密钥，也不执行需要本机 CA/私有配置的部署 smoke。

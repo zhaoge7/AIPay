@@ -73,7 +73,7 @@ Application rollback is a new audited Git change, not an untracked filesystem re
 4. Build and redeploy with `pnpm run deploy:local`, then run `pnpm run deploy:smoke`.
 5. Verify metrics, console controls, an isolated non-money workflow, Transaction timelines, Worker leases, and reconciliation before gradually re-enabling Agents and finally removing global pause.
 
-Database migrations are forward-only. Do not downgrade or delete an applied migration during an incident. If a data migration is defective, ship a reviewed compensating migration. A backup restore is disaster recovery, not the normal application rollback: create an encrypted backup with `pnpm run db:backup -- <new-file>`, restore and validate it only in an independent `_test` database, then perform a separately approved controlled cutover. Never restore over the source database.
+Database migrations are forward-only. Do not downgrade or delete an applied migration during an incident. If a data migration is defective, ship a reviewed compensating migration. A backup restore is disaster recovery, not the normal application rollback: create an encrypted backup with `pnpm run db:backup <new-file>`, restore and validate it only in an independent `_test` database, then perform a separately approved controlled cutover. Never restore over the source database.
 
 ## Communicate
 
