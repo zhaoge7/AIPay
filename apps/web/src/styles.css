@@ -843,6 +843,28 @@ input:focus-visible {
   height: 42px;
 }
 
+.modal-form .api-schema-input {
+  min-height: 176px;
+  max-height: 320px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.modal-form .checkbox-line {
+  min-height: 42px;
+  margin-top: 28px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+}
+
+.modal-form .checkbox-line input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+
 .modal-context,
 .confirm-copy {
   margin: 0;

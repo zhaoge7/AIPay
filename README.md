@@ -1,6 +1,6 @@
 # AIPay
 
-AIPay 是面向 AI Agent 的人民币支付编排与信任层。它把 Agent 身份、结构化 Mandate、固定报价、幂等交易、支付通道、Payment Proof、可验证交付和审计时间线组合成一个可暂停、可恢复的闭环。
+AIPay 是面向 AI Agent 的商户 API 聚合与按次支付平台。商户登记 API 类别、能力、固定价格和调用规范；Agent 提交意图、参数与幂等键后，平台完成服务筛选、HTTP 402 出账、支付宝验付、平台垫资、商户调用、履约确认和审计。
 
 当前仓库已经实现 HTTP API、React 管理控制台、异步 Worker、PostgreSQL 状态机、支付宝网页支付与 AI 按量付费沙箱、Agent/Merchant TypeScript SDK、HTTP 402/MCP 示例、安全/故障/备份/监控门禁，以及 P11 设计伙伴的自托管 Agent bridge、Merchant adapter、逐笔流量证据和 MVP 复盘工具。
 
@@ -13,6 +13,8 @@ AIPay 是面向 AI Agent 的人民币支付编排与信任层。它把 Agent 身
 
 核心入口：
 
+- [系统架构与支付时序](./ARCHITECTURE.md)
+- [8 分钟面试演示脚本](./DEMO.md)
 - [SDK 与独立示例](./packages/sdk-ts/README.md)
 - [闭测部署](./deploy/README.md)
 - [设计伙伴闭测与证据规则](./PILOT.md)
@@ -140,6 +142,12 @@ Agent 请求验签采用 RFC 9421。当前验证端点为 `POST /v1/agent/verify
 商户资料端点为 `POST /v1/merchants`、`GET /v1/merchants` 和 `PATCH /v1/merchants/:merchantId`。回调地址必须使用 HTTPS；只有 localhost 和回环 IP 可使用 HTTP。保存回调地址不代表已通过后续 Webhook 出站安全检查。
 
 商户服务端点为 `POST/GET /v1/merchants/:merchantId/services` 和 `PATCH /v1/merchants/:merchantId/services/:serviceId`。服务类型支持 `api`、`mcp`、`skill`；V1 只接受固定 CNY 最小单位字符串价格，以及 `full_on_delivery_failure` 或 `non_refundable` 退款规则。HTTP JSON 校验不执行类型强制转换。
+
+API 类型服务通过 `PUT /v1/merchants/:merchantId/services/:serviceId/api-registration` 登记调用地址、能力描述、能力标签、参数规范和 1-30 秒超时；`GET` 同一路径读取当前注册版本与质量统计。输入规范采用受控 JSON Schema 子集：根节点固定为 object，显式声明 `additionalProperties`、`required` 和属性的基础类型。商户按平台发送的 `invocationId` 幂等处理请求，并在解析正文前校验 `x-aipay-key-id`、`x-aipay-timestamp` 与 `x-aipay-signature`。
+
+签名 Agent 通过 `POST /v1/a2m/invocations` 提交 `intent`、可选 `category`、`parameters` 和 `idempotencyKey`。平台先归类，再按历史成功率、时延与价格筛选同类 API，原子保存选择和调用快照并返回 HTTP 402。付款后 Agent 访问账单中的订单专属 `resource_id`，携 `Payment-Proof` 重试；平台严格验付、调用已选商户 API、保存真实 JSON 结果并发送支付宝履约确认。
+
+聚合出账依赖 `platform_funding_accounts` 中充足的 CNY 可用垫资。出账时金额从 available 转入 reserved；验付后转为商户 pending；商户成功返回后转为商户 available。履约确认后只创建 pending 的 `platform_receivables`，必须由后续支付宝清算查询或对账证据调用内部 `PlatformTreasuryService.confirmProviderSettlement` 幂等更新为 received 并补回平台 available，不能用 HTTP 调用成功冒充资金到账。
 
 签名 Agent 通过 `GET /v1/catalog/services` 查询 active 商户下的 enabled 服务。可按 `type`、`category`、`merchantId` 过滤，并使用 `limit`（1-100 的十进制字符串）和 `svc_` `cursor` 分页。GET 空正文仍须按 Agent Profile 签署空字节 Content-Digest。
 

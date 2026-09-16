@@ -2,6 +2,7 @@ export {
   AgentClient,
   PaymentActionRequiredError,
   PaymentNotCompletedError,
+  type ApiInvocationInput,
   type AgentClientOptions,
   type CatalogPage,
   type CatalogService,

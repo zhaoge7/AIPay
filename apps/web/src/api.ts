@@ -50,6 +50,36 @@ export interface ServiceInput {
   readonly refundPolicy: ServiceView['refundPolicy'];
 }
 
+export interface ApiRegistrationView {
+  readonly serviceId: string;
+  readonly merchantId: string;
+  readonly endpointUrl: string;
+  readonly httpMethod: 'POST';
+  readonly description: string;
+  readonly capabilities: readonly string[];
+  readonly inputSchema: Readonly<Record<string, unknown>>;
+  readonly timeoutMs: number;
+  readonly status: 'enabled' | 'disabled';
+  readonly version: number;
+  readonly quality: Readonly<{
+    successCount: string;
+    failureCount: string;
+    averageLatencyMs: number | null;
+  }>;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface ApiRegistrationInput {
+  readonly endpointUrl: string;
+  readonly httpMethod: 'POST';
+  readonly description: string;
+  readonly capabilities: readonly string[];
+  readonly inputSchema: Readonly<Record<string, unknown>>;
+  readonly timeoutMs: number;
+  readonly status?: 'enabled' | 'disabled';
+}
+
 export interface MoneyView {
   readonly currency: 'CNY';
   readonly amountMinor: string;
@@ -283,6 +313,19 @@ export const consoleApi = Object.freeze({
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(input),
     }),
+  apiRegistration: (merchantId: string, serviceId: string) =>
+    request<ApiRegistrationView>(
+      `/v1/merchants/${merchantId}/services/${serviceId}/api-registration`,
+    ),
+  putApiRegistration: (merchantId: string, serviceId: string, input: ApiRegistrationInput) =>
+    request<ApiRegistrationView>(
+      `/v1/merchants/${merchantId}/services/${serviceId}/api-registration`,
+      {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(input),
+      },
+    ),
   mandates: () => request<readonly MandateView[]>('/v1/mandates'),
   createMandate: (input: MandateInput) =>
     request<MandateView>('/v1/mandates', {

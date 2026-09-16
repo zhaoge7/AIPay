@@ -49,3 +49,5 @@ Thumbs.db
 !/pilot/traffic.example.json
 !/pilot/review-evidence.example.json
 /pilot/reports/
+DEMO.md
+ARCHITECTURE.md

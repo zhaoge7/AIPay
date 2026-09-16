@@ -128,6 +128,58 @@ test('AgentClient signs catalog requests with the frozen RFC 9421 profile', asyn
   });
 });
 
+test('AgentClient signs aggregated invocation and Payment-Proof retry requests', async () => {
+  const pair = keyPair();
+  const publicKey = await webcrypto.subtle.importKey(
+    'raw',
+    pair.publicKey.export({ format: 'der', type: 'spki' }).subarray(-32),
+    { name: 'Ed25519' },
+    false,
+    ['verify'],
+  );
+  const requests = [];
+  const client = new AgentClient({
+    baseUrl: 'https://aipay.example.com',
+    agentId: ids.agent,
+    keyId: ids.key,
+    privateKeyPkcs8Base64: pair.privateBase64,
+    now: () => new Date('2026-08-29T00:00:00.000Z'),
+    randomBytes: () => Buffer.alloc(16, 9),
+    fetch: async (input, init) => {
+      const request = new Request(input, init);
+      const body = await request.clone().text();
+      const headers = Object.fromEntries(request.headers.entries());
+      const result = await verifySignature(
+        { method: request.method, url: request.url, headers, body },
+        {
+          now: Math.floor(Date.parse('2026-08-29T00:00:00.000Z') / 1_000),
+          label: 'aipay',
+          keyResolver: async (keyId) =>
+            keyId === ids.key ? createWebCryptoVerifier(publicKey) : null,
+        },
+      );
+      assert.equal(result.valid, true);
+      requests.push({ request, body });
+      return new Response(null, { status: requests.length === 1 ? 402 : 200 });
+    },
+  });
+
+  const initial = await client.requestApiInvocation({
+    intent: '查询杭州天气',
+    category: 'data.weather',
+    parameters: { city: '杭州' },
+    idempotencyKey: 'sdk-aggregation-0001',
+  });
+  assert.equal(initial.status, 402);
+  const resourceId = `/v1/a2m/invocations/A2M${'A'.repeat(32)}`;
+  const retried = await client.retryApiInvocation(resourceId, 'encoded-payment-proof');
+  assert.equal(retried.status, 200);
+  assert.equal(requests[0].request.url, 'https://aipay.example.com/v1/a2m/invocations');
+  assert.equal(JSON.parse(requests[0].body).parameters.city, '杭州');
+  assert.equal(requests[1].request.url, `https://aipay.example.com${resourceId}`);
+  assert.equal(requests[1].request.headers.get('payment-proof'), 'encoded-payment-proof');
+});
+
 test('MerchantClient creates and signs a Quote without exposing its private key', async () => {
   const pair = keyPair();
   let call = 0;

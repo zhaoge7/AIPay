@@ -1,5 +1,5 @@
 import { Buffer } from 'node:buffer';
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 
 import { formatUtcDateTime, type UtcDateTime } from '@aipay/contracts';
 
@@ -133,8 +133,6 @@ export class FakePaymentProvider implements PaymentProvider {
   readonly #paymentsById = new Map<string, PaymentRecord>();
   readonly #refundsByIdempotency = new Map<string, RefundRecord>();
   readonly #refundsById = new Map<string, RefundRecord>();
-  #paymentSequence = 0;
-  #refundSequence = 0;
   #eventSequence = 0;
 
   constructor(options: FakeProviderOptions) {
@@ -191,7 +189,7 @@ export class FakePaymentProvider implements PaymentProvider {
     const outcome = this.#paymentOutcomes.shift() ?? this.#defaultPaymentOutcome;
     const record: PaymentRecord = {
       idempotencyKey: request.idempotencyKey,
-      providerPaymentId: `fake_pay_${String(++this.#paymentSequence)}`,
+      providerPaymentId: `fake_pay_${createHash('sha256').update(request.idempotencyKey).digest('hex')}`,
       status: outcome === 'timeout' ? 'unknown' : outcome,
       occurredAt: formatUtcDateTime(this.#now()),
       failureCode: outcome === 'failed' ? 'FAKE_PAYMENT_FAILED' : null,
@@ -246,7 +244,7 @@ export class FakePaymentProvider implements PaymentProvider {
     const outcome = this.#refundOutcomes.shift() ?? this.#defaultRefundOutcome;
     const record: RefundRecord = {
       idempotencyKey: request.idempotencyKey,
-      providerRefundId: `fake_refund_${String(++this.#refundSequence)}`,
+      providerRefundId: `fake_refund_${createHash('sha256').update(request.idempotencyKey).digest('hex')}`,
       providerPaymentId: request.providerPaymentId,
       status: outcome === 'timeout' ? 'unknown' : outcome,
       occurredAt: formatUtcDateTime(this.#now()),

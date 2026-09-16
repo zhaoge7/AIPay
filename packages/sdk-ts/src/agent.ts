@@ -74,6 +74,13 @@ export interface PaidCallOptions {
   readonly pollIntervalMs?: number;
 }
 
+export interface ApiInvocationInput {
+  readonly intent: string;
+  readonly category?: string;
+  readonly parameters: Readonly<Record<string, unknown>>;
+  readonly idempotencyKey: string;
+}
+
 export class PaymentActionRequiredError extends Error {
   readonly attempt: Readonly<PaymentAttempt>;
 
@@ -269,7 +276,32 @@ export class AgentClient {
     return this.#fetch(new Request(initialRequest, { headers }));
   }
 
+  requestApiInvocation(input: Readonly<ApiInvocationInput>): Promise<Response> {
+    return this.#signedFetch('POST', 'v1/a2m/invocations', input);
+  }
+
+  retryApiInvocation(resourceId: string, paymentProof: string): Promise<Response> {
+    if (!/^\/v1\/a2m\/invocations\/A2M[0-9A-F]{32}$/u.test(resourceId)) {
+      throw new Error('A2M invocation resource ID is invalid');
+    }
+
+    if (paymentProof.length < 16 || paymentProof.length > 16_384) {
+      throw new Error('A2M Payment-Proof is invalid');
+    }
+
+    return this.#signedFetch('POST', resourceId.slice(1), {}, { 'payment-proof': paymentProof });
+  }
+
   async #request<Data>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<Data> {
+    return responseData<Data>(await this.#signedFetch(method, path, body));
+  }
+
+  async #signedFetch(
+    method: 'GET' | 'POST',
+    path: string,
+    body?: unknown,
+    extraHeaders: Readonly<Record<string, string>> = {},
+  ): Promise<Response> {
     const url = new URL(path, this.#baseUrl).toString();
     const bodyText = method === 'GET' ? '' : JSON.stringify(body ?? {});
     const created = Math.floor(this.#now().getTime() / 1_000);
@@ -282,6 +314,7 @@ export class AgentClient {
 
     const nonce = Buffer.from(nonceBytes).toString('base64url');
     const headers: Record<string, string> = {
+      ...extraHeaders,
       'content-type': 'application/json',
       'content-digest': `sha-256=:${createHash('sha256').update(bodyText, 'utf8').digest('base64')}:`,
       'x-aipay-agent-id': this.#agentId,
@@ -304,11 +337,10 @@ export class AgentClient {
       `aipay=(${components});created=${String(created)};expires=${String(expires)};nonce="${nonce}";` +
       `keyid="${this.#keyId}";alg="ed25519";tag="aipay-agent-v1"`;
     headers.signature = `aipay=:${signature}:`;
-    const response = await this.#fetch(url, {
+    return this.#fetch(url, {
       method,
       headers,
       ...(method === 'GET' ? {} : { body: bodyText }),
     });
-    return responseData<Data>(response);
   }
 }

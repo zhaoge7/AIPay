@@ -17,6 +17,36 @@ const request = {
   callbackUrl: 'https://aipay.example.com/webhooks/fake',
 };
 
+test('keeps payment and refund references distinct and stable across provider instances', async () => {
+  const options = {
+    webhookSecret: 'fake-secret-at-least-16-bytes',
+    defaultPaymentOutcome: 'succeeded',
+    defaultRefundOutcome: 'succeeded',
+  };
+  const references = [];
+
+  for (const suffix of ['first', 'second', 'first']) {
+    const provider = new FakePaymentProvider(options);
+    const payment = await provider.createPayment({
+      ...request,
+      idempotencyKey: `payment-${suffix}`,
+    });
+    const refund = await provider.createRefund({
+      refundId: 'rfd_01890f3e-b002-7cc2-b8c5-7f6a1b2c3d4e',
+      transactionId: request.transactionId,
+      providerPaymentId: payment.providerPaymentId,
+      amount: request.amount,
+      idempotencyKey: `refund-${suffix}`,
+      reason: 'delivery_failed',
+    });
+    references.push([payment.providerPaymentId, refund.providerRefundId]);
+  }
+
+  assert.notEqual(references[0][0], references[1][0]);
+  assert.notEqual(references[0][1], references[1][1]);
+  assert.deepEqual(references[0], references[2]);
+});
+
 test('simulates successful and failed payments idempotently', async () => {
   const provider = new FakePaymentProvider({ webhookSecret: 'fake-secret-at-least-16-bytes' });
   provider.enqueuePaymentOutcome('succeeded');

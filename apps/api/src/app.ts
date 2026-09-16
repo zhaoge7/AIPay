@@ -14,6 +14,8 @@ import {
 } from './abuse/rate-limit.js';
 import { registerA2MRoutes } from './a2m/routes.js';
 import type { A2MService } from './a2m/service.js';
+import { registerApiInvocationRoutes } from './a2m/invocation-routes.js';
+import type { ApiInvocationService } from './a2m/invocation-service.js';
 import { registerAgentSignatureRoutes } from './agent-signatures/routes.js';
 import { registerApiKeyRoutes } from './api-keys/routes.js';
 import { registerPaymentControlRoutes } from './controls/routes.js';
@@ -28,6 +30,7 @@ import { registerMandateRoutes } from './mandates/routes.js';
 import type { MandateIssuer } from './mandates/issuer.js';
 import { registerMandateLifecycleRoutes } from './mandates/lifecycle-routes.js';
 import { registerCatalogRoutes } from './services/catalog-routes.js';
+import { registerApiRegistrationRoutes } from './services/api-registration-routes.js';
 import { registerServiceRoutes } from './services/routes.js';
 import { registerQuoteRoutes } from './quotes/routes.js';
 import { registerQuoteSigningRoutes } from './quotes/signing-routes.js';
@@ -65,6 +68,7 @@ export interface BuildAppOptions {
   readonly alipayProvider?: PaymentProvider;
   readonly paymentProofIssuer?: PaymentProofIssuer;
   readonly a2mService?: A2MService;
+  readonly apiInvocationService?: ApiInvocationService;
   readonly rateLimits?: RateLimitOptions;
   readonly metricsToken?: string;
   readonly closedTestWebhookSigner?: Ed25519WebhookSigner;
@@ -136,10 +140,14 @@ export async function buildApp(options: BuildAppOptions) {
   if (options.a2mService !== undefined) {
     registerA2MRoutes(app, options.a2mService);
   }
+  if (options.apiInvocationService !== undefined) {
+    registerApiInvocationRoutes(app, options.database, options.apiInvocationService);
+  }
   registerAgentSignatureRoutes(app, options.database);
   registerMerchantRoutes(app, options.database);
   registerDeliveryReceiptRoutes(app, options.database);
   registerServiceRoutes(app, options.database);
+  registerApiRegistrationRoutes(app, options.database);
   registerCatalogRoutes(app, options.database);
   registerMandateRoutes(app, options.database, options.mandateIssuer);
   registerMandateLifecycleRoutes(app, options.database);

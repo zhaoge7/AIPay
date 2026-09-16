@@ -7,6 +7,8 @@ import { AlipayA2MClient } from '@aipay/payment';
 
 import { buildApp } from './app.js';
 import { loadA2MRuntimeConfig } from './a2m/config.js';
+import { ApiInvocationService } from './a2m/invocation-service.js';
+import { HttpMerchantApiInvoker, MerchantInvocationSigner } from './a2m/merchant-invoker.js';
 import { A2MService } from './a2m/service.js';
 import { MandateIssuer } from './mandates/issuer.js';
 import { PaymentProofIssuer } from './payments/proofs.js';
@@ -26,7 +28,21 @@ export async function startApi() {
   }
 
   const a2mConfig = await loadA2MRuntimeConfig(process.env);
-  const a2mService = new A2MService(database, new AlipayA2MClient(a2mConfig), a2mConfig);
+  const a2mClient = new AlipayA2MClient(a2mConfig);
+  const a2mService = new A2MService(database, a2mClient, a2mConfig);
+  const invocationSigner = new MerchantInvocationSigner(
+    issuerConfig.keyId,
+    issuerConfig.privateKeyPkcs8Base64,
+  );
+  const merchantInvoker = new HttpMerchantApiInvoker(invocationSigner, {
+    allowLoopbackHttp: config.environment !== 'production',
+  });
+  const apiInvocationService = new ApiInvocationService(
+    database,
+    a2mClient,
+    a2mConfig,
+    merchantInvoker,
+  );
   const app = await buildApp({
     database,
     secureCookies: config.environment === 'production',
@@ -34,6 +50,7 @@ export async function startApi() {
     mandateIssuer,
     paymentProofIssuer,
     a2mService,
+    apiInvocationService,
     ...(metricsToken === undefined ? {} : { metricsToken }),
   });
 
@@ -55,6 +72,12 @@ export { PaymentControlService, type PaymentControlView } from './controls/servi
 export { MonitoringService, type MonitoringSnapshot } from './monitoring/service.js';
 export { MerchantError, MerchantService } from './merchants/service.js';
 export { ServiceCatalogService, ServiceError } from './services/service.js';
+export {
+  ApiRegistrationError,
+  ApiRegistrationService,
+  type ApiRegistrationInput,
+  type ApiRegistrationView,
+} from './services/api-registration.js';
 export { MandateDraftError, MandateDraftService } from './mandates/service.js';
 export { MandateIssuer, MandateIssuerError, MandateVerifier } from './mandates/issuer.js';
 export { MandateLifecycleError, MandateLifecycleService } from './mandates/lifecycle.js';
@@ -81,4 +104,20 @@ export { ReconciliationService } from './reconciliation/service.js';
 export { TimelineError, TransactionTimelineService } from './timeline/service.js';
 export { loadA2MRuntimeConfig, type A2MRuntimeConfig } from './a2m/config.js';
 export { A2MError, A2MService, type A2MClientPort } from './a2m/service.js';
+export {
+  ApiInvocationError,
+  ApiInvocationService,
+  type CreateApiInvocationInput,
+} from './a2m/invocation-service.js';
+export {
+  HttpMerchantApiInvoker,
+  MerchantInvocationError,
+  MerchantInvocationSigner,
+  type MerchantApiInvokerPort,
+} from './a2m/merchant-invoker.js';
+export {
+  PlatformTreasuryError,
+  PlatformTreasuryService,
+  type PlatformSettlementView,
+} from './a2m/treasury.js';
 export { ARGON2ID_OPTIONS, hashPassword, verifyPassword } from './auth/password.js';

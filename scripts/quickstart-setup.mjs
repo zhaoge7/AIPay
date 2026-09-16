@@ -7,6 +7,28 @@ import { URL } from 'node:url';
 
 const baseUrl = new URL(process.env.AIPAY_BASE_URL ?? 'http://127.0.0.1:3000');
 const outputPath = new URL('../examples/.env.quickstart', import.meta.url);
+const args = process.argv.slice(2);
+const login = args.length === 1 && args[0] === '--login';
+
+if (args.length > 0 && !login) {
+  throw new Error('Usage: quickstart-setup.mjs [--login]');
+}
+
+const email = process.env.AIPAY_QUICKSTART_EMAIL;
+const password = process.env.AIPAY_QUICKSTART_PASSWORD;
+
+if (login) {
+  if (!email?.trim() || !password) {
+    throw new Error('--login requires AIPAY_QUICKSTART_EMAIL and AIPAY_QUICKSTART_PASSWORD');
+  }
+
+  const localHttp =
+    baseUrl.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(baseUrl.hostname);
+
+  if (baseUrl.protocol !== 'https:' && !localHttp) {
+    throw new Error('Console login requires HTTPS or a loopback HTTP API');
+  }
+}
 
 async function request(path, options = {}) {
   const headers = {
@@ -32,13 +54,15 @@ async function request(path, options = {}) {
 }
 
 const suffix = randomBytes(6).toString('hex');
-const registration = await request('/v1/auth/register', {
-  body: {
-    email: `quickstart-${suffix}@example.test`,
-    password: `${randomBytes(24).toString('base64url')}Aa1!`,
-  },
+const authentication = await request(login ? '/v1/auth/login' : '/v1/auth/register', {
+  body: login
+    ? { email: email.trim(), password }
+    : {
+        email: `quickstart-${suffix}@example.test`,
+        password: `${randomBytes(24).toString('base64url')}Aa1!`,
+      },
 });
-const setCookie = registration.response.headers.get('set-cookie');
+const setCookie = authentication.response.headers.get('set-cookie');
 
 if (setCookie === null) {
   throw new Error('Quickstart setup failed: session cookie missing');

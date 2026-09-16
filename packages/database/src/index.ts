@@ -100,6 +100,25 @@ export interface ServiceTable {
   updatedAt: Generated<Date>;
 }
 
+export interface ApiRegistrationTable {
+  serviceId: string;
+  merchantId: string;
+  endpointUrl: string;
+  httpMethod: Generated<'POST'>;
+  description: string;
+  capabilities: unknown;
+  inputSchema: unknown;
+  timeoutMs: Generated<number>;
+  status: Generated<'enabled' | 'disabled'>;
+  version: Generated<number>;
+  successCount: Generated<string>;
+  failureCount: Generated<string>;
+  totalLatencyMs: Generated<string>;
+  lastInvokedAt: Date | null;
+  createdAt: Generated<Date>;
+  updatedAt: Generated<Date>;
+}
+
 export interface MandateTable {
   id: Generated<string>;
   schemaVersion: Generated<'1'>;
@@ -352,12 +371,68 @@ export interface A2MOrderTable {
   goodsName: string;
   payBefore: Date;
   orderStatus: Generated<'pending_payment' | 'paid'>;
-  fulfillmentStatus: Generated<'unfulfilled' | 'pending_confirm' | 'fulfilled'>;
+  fulfillmentStatus: Generated<'unfulfilled' | 'invoking' | 'pending_confirm' | 'fulfilled'>;
   providerTradeNo: string | null;
   paymentProofHash: Uint8Array | null;
   serviceResult: unknown;
   fulfillmentErrorCode: string | null;
   fulfilledAt: Date | null;
+  agentId: Generated<string | null>;
+  idempotencyKeyHash: Generated<Uint8Array | null>;
+  requestHash: Generated<Uint8Array | null>;
+  requestedCategory: Generated<string | null>;
+  resolvedCategory: Generated<string | null>;
+  intent: Generated<string | null>;
+  invocationParameters: Generated<unknown>;
+  selectionScore: Generated<number | null>;
+  selectionVersion: Generated<string | null>;
+  apiRegistrationVersion: Generated<number | null>;
+  invocationUrl: Generated<string | null>;
+  invocationTimeoutMs: Generated<number | null>;
+  invocationAttemptCount: Generated<number>;
+  invocationLeaseExpiresAt: Generated<Date | null>;
+  createdAt: Generated<Date>;
+  updatedAt: Generated<Date>;
+}
+
+export interface PlatformFundingAccountTable {
+  currency: 'CNY';
+  availableAmountMinor: Generated<string>;
+  reservedAmountMinor: Generated<string>;
+  updatedAt: Generated<Date>;
+}
+
+export interface MerchantSettlementAccountTable {
+  merchantId: string;
+  currency: Generated<'CNY'>;
+  availableAmountMinor: Generated<string>;
+  pendingAmountMinor: Generated<string>;
+  updatedAt: Generated<Date>;
+}
+
+export interface MerchantAdvanceTable {
+  id: Generated<string>;
+  a2mOrderId: string;
+  merchantId: string;
+  currency: Generated<'CNY'>;
+  amountMinor: string;
+  status: Generated<'reserved' | 'advanced' | 'paid' | 'released'>;
+  advancedAt: Date | null;
+  paidAt: Date | null;
+  releasedAt: Date | null;
+  releaseReason: string | null;
+  createdAt: Generated<Date>;
+  updatedAt: Generated<Date>;
+}
+
+export interface PlatformReceivableTable {
+  id: Generated<string>;
+  a2mOrderId: string;
+  providerTradeNo: string;
+  currency: Generated<'CNY'>;
+  amountMinor: string;
+  status: Generated<'pending' | 'received' | 'disputed'>;
+  receivedAt: Date | null;
   createdAt: Generated<Date>;
   updatedAt: Generated<Date>;
 }
@@ -427,6 +502,7 @@ export interface AIPayDatabase {
   agentRequestNonces: AgentRequestNonceTable;
   merchants: MerchantTable;
   services: ServiceTable;
+  apiRegistrations: ApiRegistrationTable;
   mandates: MandateTable;
   mandateAllowedMerchants: MandateAllowedMerchantTable;
   mandateAllowedCategories: MandateAllowedCategoryTable;
@@ -444,6 +520,10 @@ export interface AIPayDatabase {
   reconciliationRuns: ReconciliationRunTable;
   reconciliationItems: ReconciliationItemTable;
   a2mOrders: A2MOrderTable;
+  platformFundingAccounts: PlatformFundingAccountTable;
+  merchantSettlementAccounts: MerchantSettlementAccountTable;
+  merchantAdvances: MerchantAdvanceTable;
+  platformReceivables: PlatformReceivableTable;
   outboxEvents: OutboxEventTable;
   webhookDeliveries: WebhookDeliveryTable;
   webhookDeliveryAttempts: WebhookDeliveryAttemptTable;

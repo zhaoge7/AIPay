@@ -178,6 +178,51 @@ test('registers API, MCP and Skill services with fixed prices and refund rules',
   assert.equal(listed.statusCode, 200);
   assert.equal(parseBody(listed).data.length, 3);
 
+  const registrationPath = `/v1/merchants/${merchant.merchantId}/services/${apiService.serviceId}/api-registration`;
+  const registeredApi = await app.inject({
+    method: 'PUT',
+    url: registrationPath,
+    headers: { cookie: ownerCookie },
+    payload: {
+      endpointUrl: 'https://merchant.example.com/v1/weather',
+      httpMethod: 'POST',
+      description: '按城市查询天气',
+      capabilities: ['天气查询', 'weather'],
+      inputSchema: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['city'],
+        properties: { city: { type: 'string' } },
+      },
+      timeoutMs: 5000,
+    },
+  });
+  assert.equal(registeredApi.statusCode, 200);
+  assert.equal(parseBody(registeredApi).data.version, 1);
+  assert.deepEqual(parseBody(registeredApi).data.capabilities, ['天气查询', 'weather']);
+  const loadedApi = await app.inject({
+    method: 'GET',
+    url: registrationPath,
+    headers: { cookie: ownerCookie },
+  });
+  assert.equal(loadedApi.statusCode, 200);
+  assert.equal(parseBody(loadedApi).data.endpointUrl, 'https://merchant.example.com/v1/weather');
+  const invalidApiSchema = await app.inject({
+    method: 'PUT',
+    url: registrationPath,
+    headers: { cookie: ownerCookie },
+    payload: {
+      endpointUrl: 'https://merchant.example.com/v1/weather',
+      httpMethod: 'POST',
+      description: 'Invalid schema',
+      capabilities: ['weather'],
+      inputSchema: { type: 'object', properties: {} },
+      timeoutMs: 5000,
+    },
+  });
+  assert.equal(invalidApiSchema.statusCode, 400);
+  assert.equal(parseBody(invalidApiSchema).errors[0].code, 'invalid_input_schema');
+
   const duplicate = await app.inject({
     method: 'POST',
     url: `/v1/merchants/${merchant.merchantId}/services`,
@@ -240,4 +285,10 @@ test('registers API, MCP and Skill services with fixed prices and refund rules',
     payload: { status: 'enabled' },
   });
   assert.equal(crossAccountUpdate.statusCode, 403);
+  const crossAccountRegistration = await app.inject({
+    method: 'GET',
+    url: registrationPath,
+    headers: { cookie: otherCookie },
+  });
+  assert.equal(crossAccountRegistration.statusCode, 403);
 });

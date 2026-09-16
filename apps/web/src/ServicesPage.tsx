@@ -1,7 +1,14 @@
-import { CircleDollarSign, Pencil, Plus, Power, RefreshCw, Store, X } from 'lucide-react';
+import { Cable, CircleDollarSign, Pencil, Plus, Power, RefreshCw, Store, X } from 'lucide-react';
 import { useEffect, useState, type SyntheticEvent } from 'react';
 
-import { consoleApi, type MerchantView, type ServiceInput, type ServiceView } from './api.js';
+import {
+  ConsoleApiError,
+  consoleApi,
+  type ApiRegistrationInput,
+  type MerchantView,
+  type ServiceInput,
+  type ServiceView,
+} from './api.js';
 
 const emptyForm: ServiceInput = {
   type: 'api',
@@ -10,6 +17,33 @@ const emptyForm: ServiceInput = {
   unit: 'request',
   unitPrice: { currency: 'CNY', amountMinor: '1' },
   refundPolicy: 'full_on_delivery_failure',
+};
+
+interface ApiEditorForm {
+  readonly endpointUrl: string;
+  readonly description: string;
+  readonly capabilities: string;
+  readonly inputSchema: string;
+  readonly timeoutMs: string;
+  readonly enabled: boolean;
+}
+
+const emptyApiForm: ApiEditorForm = {
+  endpointUrl: '',
+  description: '',
+  capabilities: '',
+  inputSchema: JSON.stringify(
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: [],
+      properties: {},
+    },
+    null,
+    2,
+  ),
+  timeoutMs: '10000',
+  enabled: true,
 };
 
 function minorToYuan(value: string) {
@@ -43,6 +77,8 @@ export function ServicesPage() {
   const [merchantName, setMerchantName] = useState('');
   const [callbackUrl, setCallbackUrl] = useState('');
   const [pending, setPending] = useState(false);
+  const [apiEditor, setApiEditor] = useState<ServiceView | null>(null);
+  const [apiForm, setApiForm] = useState<ApiEditorForm>(emptyApiForm);
 
   async function loadMerchants() {
     setLoading(true);
@@ -151,6 +187,83 @@ export function ServicesPage() {
       );
     } catch {
       setError('服务状态更新失败');
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function openApiEditor(service: ServiceView) {
+    setPending(true);
+    setError(null);
+
+    try {
+      const registration = await consoleApi.apiRegistration(merchantId, service.serviceId);
+      setApiForm({
+        endpointUrl: registration.endpointUrl,
+        description: registration.description,
+        capabilities: registration.capabilities.join(', '),
+        inputSchema: JSON.stringify(registration.inputSchema, null, 2),
+        timeoutMs: String(registration.timeoutMs),
+        enabled: registration.status === 'enabled',
+      });
+      setApiEditor(service);
+    } catch (caught) {
+      if (caught instanceof ConsoleApiError && caught.code === 'AUTHORIZATION_DENIED') {
+        setApiForm(emptyApiForm);
+        setApiEditor(service);
+      } else {
+        setError('API 调用规范载入失败');
+      }
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function saveApiRegistration(event: SyntheticEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (apiEditor === null) return;
+    const timeoutMs = Number(apiForm.timeoutMs);
+    const capabilities = apiForm.capabilities
+      .split(/[,，\n]/u)
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+    let inputSchema: unknown;
+
+    try {
+      inputSchema = JSON.parse(apiForm.inputSchema);
+    } catch {
+      setError('参数规范必须是有效 JSON');
+      return;
+    }
+
+    if (
+      typeof inputSchema !== 'object' ||
+      inputSchema === null ||
+      Array.isArray(inputSchema) ||
+      !Number.isInteger(timeoutMs)
+    ) {
+      setError('请检查参数规范和超时时间');
+      return;
+    }
+
+    const input: ApiRegistrationInput = {
+      endpointUrl: apiForm.endpointUrl,
+      httpMethod: 'POST',
+      description: apiForm.description,
+      capabilities,
+      inputSchema: inputSchema as Readonly<Record<string, unknown>>,
+      timeoutMs,
+      status: apiForm.enabled ? 'enabled' : 'disabled',
+    };
+    setPending(true);
+    setError(null);
+
+    try {
+      await consoleApi.putApiRegistration(merchantId, apiEditor.serviceId, input);
+      setApiEditor(null);
+    } catch {
+      setError('API 调用规范保存失败，请检查地址、能力和参数结构');
     } finally {
       setPending(false);
     }
@@ -297,6 +410,18 @@ export function ServicesPage() {
                       </span>
                     </td>
                     <td className="row-actions">
+                      {service.type === 'api' ? (
+                        <button
+                          className="icon-command"
+                          type="button"
+                          title="配置 API 调用"
+                          aria-label={`配置 ${service.name} 的 API 调用`}
+                          disabled={pending}
+                          onClick={() => void openApiEditor(service)}
+                        >
+                          <Cable size={17} />
+                        </button>
+                      ) : null}
                       <button
                         className="icon-command"
                         type="button"
@@ -446,6 +571,118 @@ export function ServicesPage() {
                 </button>
                 <button className="primary-command compact" type="submit" disabled={pending}>
                   保存服务
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
+
+      {apiEditor === null ? null : (
+        <div className="modal-backdrop" role="presentation">
+          <section
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="api-editor-title"
+          >
+            <header className="modal-header">
+              <div>
+                <p className="eyebrow">商户 API</p>
+                <h2 id="api-editor-title">{apiEditor.name}</h2>
+              </div>
+              <button
+                className="icon-command"
+                type="button"
+                aria-label="关闭"
+                onClick={() => {
+                  setApiEditor(null);
+                }}
+              >
+                <X size={19} />
+              </button>
+            </header>
+            <form className="modal-form" onSubmit={(event) => void saveApiRegistration(event)}>
+              <label htmlFor="api-endpoint">调用地址</label>
+              <input
+                id="api-endpoint"
+                type="url"
+                value={apiForm.endpointUrl}
+                required
+                onChange={(event) => {
+                  setApiForm((current) => ({ ...current, endpointUrl: event.target.value }));
+                }}
+              />
+              <label htmlFor="api-description">能力描述</label>
+              <textarea
+                id="api-description"
+                value={apiForm.description}
+                required
+                maxLength={1000}
+                onChange={(event) => {
+                  setApiForm((current) => ({ ...current, description: event.target.value }));
+                }}
+              />
+              <label htmlFor="api-capabilities">能力标签</label>
+              <input
+                id="api-capabilities"
+                value={apiForm.capabilities}
+                required
+                onChange={(event) => {
+                  setApiForm((current) => ({ ...current, capabilities: event.target.value }));
+                }}
+              />
+              <label htmlFor="api-input-schema">参数规范</label>
+              <textarea
+                id="api-input-schema"
+                className="mono-value api-schema-input"
+                value={apiForm.inputSchema}
+                required
+                spellCheck={false}
+                onChange={(event) => {
+                  setApiForm((current) => ({ ...current, inputSchema: event.target.value }));
+                }}
+              />
+              <div className="form-grid">
+                <div>
+                  <label htmlFor="api-timeout">超时（毫秒）</label>
+                  <input
+                    id="api-timeout"
+                    type="number"
+                    min={1000}
+                    max={30000}
+                    step={1000}
+                    value={apiForm.timeoutMs}
+                    required
+                    onChange={(event) => {
+                      setApiForm((current) => ({ ...current, timeoutMs: event.target.value }));
+                    }}
+                  />
+                </div>
+                <label className="checkbox-line" htmlFor="api-enabled">
+                  <input
+                    id="api-enabled"
+                    type="checkbox"
+                    checked={apiForm.enabled}
+                    onChange={(event) => {
+                      setApiForm((current) => ({ ...current, enabled: event.target.checked }));
+                    }}
+                  />
+                  参与 Agent 筛选
+                </label>
+              </div>
+              <div className="modal-actions">
+                <button
+                  className="secondary-command"
+                  type="button"
+                  onClick={() => {
+                    setApiEditor(null);
+                  }}
+                >
+                  取消
+                </button>
+                <button className="primary-command compact" type="submit" disabled={pending}>
+                  保存 API
                 </button>
               </div>
             </form>
